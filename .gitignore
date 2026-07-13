@@ -5,3 +5,4 @@ venv/
 *.docx
 !examples/*.docx
 generated_formatter.py
+_generated_formatter.py

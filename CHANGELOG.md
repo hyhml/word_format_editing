@@ -1,5 +1,25 @@
 # 版本说明
 
+## v0.3.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 0 的代码设计与第一版实现：`format_registry.py`。
+- 支持格式要求文件 SHA-256 指纹计算。
+- 支持多文件格式要求集的顺序无关组合 hash。
+- 支持扫描 `formats/` 目录下的格式包 manifest。
+- 支持基于 `combined_source_hash` 的精确复用匹配。
+- 支持基于描述、文件名和 manifest 关键词的元数据匹配。
+- 预留语义相似匹配接口，后续可接入 embedding。
+- 未命中且信息不足时返回格式澄清问题。
+- 新增 `formats/example_general/` 示例格式包。
+- 新增模块 0 单元测试。
+
+### 验证
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 format_registry.py check --formats-dir formats examples/format_spec.example.json`
+
 ## v0.2.0 - 2026-07-14
 
 ### 新增

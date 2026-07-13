@@ -5,7 +5,39 @@
 1. 用 JSON 描述你的 Word 格式要求。
 2. 根据 JSON 自动生成一个独立的 Python 格式化脚本，再用该脚本处理原始 `.docx`。
 
-长期目标是把它升级为一个 AI agent skill。后续开发任务见 [TASKS.md](/home/hyhml/codex/word/TASKS.md)。
+长期目标是把它升级为一个 AI agent skill。后续开发任务见 [TASKS.md](TASKS.md)。
+
+## 模块 0：格式包复用判断
+
+模块 0 已实现为 `format_registry.py`。它用于判断一组格式要求文件是否已经生成过格式包，如果命中即可跳过格式解析和脚本生成。
+
+检查格式要求文件是否命中已有格式包：
+
+```bash
+python3 format_registry.py check --formats-dir formats examples/format_spec.example.json
+```
+
+带用户描述进行元数据匹配：
+
+```bash
+python3 format_registry.py check \
+  --formats-dir formats \
+  --description "武汉科技大学 本科毕业论文 2024" \
+  path/to/format.pdf
+```
+
+为新格式包生成 manifest 模板：
+
+```bash
+python3 format_registry.py manifest-template \
+  --id wust_thesis_2024 \
+  --name "武汉科技大学本科毕业论文格式 2024" \
+  --keyword 武汉科技大学 \
+  --keyword 本科毕业论文 \
+  path/to/format.pdf
+```
+
+示例格式包位于 `formats/example_general/`。
 
 ## 安装依赖
 
