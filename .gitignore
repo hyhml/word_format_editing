@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.docx
+!examples/*.docx
+generated_formatter.py
