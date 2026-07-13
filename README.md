@@ -5,6 +5,8 @@
 1. 用 JSON 描述你的 Word 格式要求。
 2. 根据 JSON 自动生成一个独立的 Python 格式化脚本，再用该脚本处理原始 `.docx`。
 
+长期目标是把它升级为一个 AI agent skill。后续开发任务见 [TASKS.md](/home/hyhml/codex/word/TASKS.md)。
+
 ## 安装依赖
 
 ```bash
