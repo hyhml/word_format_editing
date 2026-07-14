@@ -1,5 +1,23 @@
 # 版本说明
 
+## v0.6.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 3 的第一版实现：`paper_structure.py`。
+- 支持从原始 `.docx` 读取段落、表格和基础对象信息。
+- 支持基于 Word 样式、编号模式和文本模式识别标题层级。
+- 支持识别摘要、关键词、目录、参考文献、致谢和附录等特殊区段。
+- 支持识别图题、表题，并为表题建立近似表格索引关联。
+- 支持输出 `paper_structure.md`、`paper_structure.json` 和 `structure_report.json`。
+- 对绘图、公式和未分类段落写入 `preserve`，供后续模块保留原样。
+- 新增模块 3 单元测试。
+
+### 验证
+
+- `PYTHONPATH=/tmp/word_format_deps python3 -m unittest discover -s tests -v`
+- `PYTHONPATH=/tmp/word_format_deps python3 -m py_compile paper_structure.py`
+
 ## v0.5.0 - 2026-07-14
 
 ### 新增

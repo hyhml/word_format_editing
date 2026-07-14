@@ -93,6 +93,26 @@ python3 formats/example_general/formatter.py raw.docx formatted.docx \
 
 当前引擎支持页面、正文、标题和表格基础格式。高级 OpenXML 补丁已有注册框架，尚未实现的补丁会写入 `skipped_patches`，不会中断基础格式化。
 
+## 模块 3：论文结构识别
+
+模块 3 已实现为 `paper_structure.py`。它只读取原始论文 `.docx`，不修改 Word，输出论文逻辑结构：
+
+- `paper_structure.md`：给人检查的结构预览。
+- `paper_structure.json`：给后续模块使用的结构数据。
+- `structure_report.json`：识别报告和统计信息。
+
+识别论文结构：
+
+```bash
+python3 paper_structure.py analyze \
+  --input raw.docx \
+  --output-md paper_structure.md \
+  --output-json paper_structure.json \
+  --report structure_report.json
+```
+
+当前支持标题层级、摘要、关键词、目录、图题、表题、参考文献、致谢、附录等基础识别。无法可靠识别的复杂对象会进入 `preserve`，后续模块默认保留原样。
+
 ## 安装依赖
 
 ```bash
