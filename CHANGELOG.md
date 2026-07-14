@@ -1,5 +1,22 @@
 # 版本说明
 
+## v0.7.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 4 的第一版实现：`format_workflow.py`。
+- 支持检查 `raw.docx`、格式包或 `format_spec.json`、可用 formatter/engine、`paper_structure.json` 和输出目录。
+- 前置产物缺失时返回 blocked 工作流报告，并用 `return_to` 指明应回到 `input`、`module_1`、`module_2` 或 `module_3`。
+- 前置产物齐全时优先调用格式包或显式传入的 `formatter.py`。
+- 无专用 `formatter.py` 但存在 `format_spec.json` 时，回退调用 `format_engine.py`。
+- 支持输出 `workflow_report.json`、`workflow_report.md`、`format_report.json` 和 `format_report.md`。
+- 新增模块 4 单元测试。
+
+### 验证
+
+- `PYTHONPATH=/tmp/word_format_deps python3 -m unittest discover -s tests -v`
+- `PYTHONPATH=/tmp/word_format_deps python3 -m py_compile format_registry.py format_parser.py format_engine.py generate_formatter.py paper_structure.py format_workflow.py format_thesis.py openxml_patches/__init__.py`
+
 ## v0.6.1 - 2026-07-14
 
 ### 调整

@@ -115,7 +115,7 @@ python3 paper_structure.py analyze \
 
 ## 模块 4：工作流门控与 formatter 启动
 
-模块 4 的设计目标是检查前置产物是否齐全，并在齐全时调用已有 formatter：
+模块 4 已实现为 `format_workflow.py`。它检查前置产物是否齐全，并在齐全时调用已有 formatter：
 
 ```text
 raw.docx + format_spec.json/formatter.py + paper_structure.json
@@ -127,6 +127,36 @@ raw.docx + format_spec.json/formatter.py + paper_structure.json
 ```
 
 模块 4 不自动补齐缺失产物，不重新解析格式要求，也不重新识别论文结构。
+
+使用格式包运行：
+
+```bash
+python3 format_workflow.py run \
+  --input raw.docx \
+  --format-package formats/example_general \
+  --structure paper_structure.json \
+  --output formatted.docx \
+  --workflow-report-json workflow_report.json \
+  --workflow-report-md workflow_report.md \
+  --format-report-json format_report.json \
+  --format-report-md format_report.md
+```
+
+也可以显式传入 `format_spec.json` 和 `formatter.py`；如果不传 `formatter.py`，模块 4 会在 `format_spec.json` 存在时回退调用 `format_engine.py`：
+
+```bash
+python3 format_workflow.py run \
+  --input raw.docx \
+  --spec formats/example_general/format_spec.json \
+  --structure paper_structure.json \
+  --output formatted.docx \
+  --workflow-report-json workflow_report.json \
+  --workflow-report-md workflow_report.md \
+  --format-report-json format_report.json \
+  --format-report-md format_report.md
+```
+
+缺少 `raw.docx`、`format_spec.json`、可用 formatter/engine 或 `paper_structure.json` 时，命令不会执行格式化，会输出 blocked 工作流报告和应回到的模块。
 
 ## 安装依赖
 

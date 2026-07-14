@@ -302,14 +302,14 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ### 子任务
 
-- [ ] 检查 `raw.docx` 是否存在。
-- [ ] 检查格式包或 `format_spec.json` 是否存在。
-- [ ] 检查 `formatter.py` 是否存在；不存在时检查是否可使用 `format_engine.py`。
-- [ ] 检查 `paper_structure.json` 是否存在。
-- [ ] 缺失任一必要产物时输出 blocked 状态和 `return_to` 模块提示。
-- [ ] 前置产物齐全时调用 `formatter.py` 或 `format_engine.py`。
-- [ ] 汇总 formatter/engine 的 `format_report.json`。
-- [ ] 输出 `workflow_report.json` 和 `workflow_report.md`。
+- [x] 检查 `raw.docx` 是否存在。
+- [x] 检查格式包或 `format_spec.json` 是否存在。
+- [x] 检查 `formatter.py` 是否存在；不存在时检查是否可使用 `format_engine.py`。
+- [x] 检查 `paper_structure.json` 是否存在。
+- [x] 缺失任一必要产物时输出 blocked 状态和 `return_to` 模块提示。
+- [x] 前置产物齐全时调用 `formatter.py` 或 `format_engine.py`。
+- [x] 汇总 formatter/engine 的 `format_report.json`。
+- [x] 输出 `workflow_report.json` 和 `workflow_report.md`。
 
 ### 验收标准
 
@@ -392,11 +392,11 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ## 当前下一步
 
-M1、M2、M3 和 M4（论文结构识别）已完成。下一步建议实现模块 4：工作流门控与 formatter 启动。
+M1、M2、M3、M4（论文结构识别）和模块 4（工作流门控与 formatter 启动）已完成。下一步建议实现模块 5：格式合规性校验与报告。
 
-模块 4 的第一批任务：
+模块 5 的第一批任务：
 
-1. 检查 `raw.docx`、格式包或 `format_spec.json`、`formatter.py`、`paper_structure.json` 是否齐全。
-2. 缺失时输出 blocked 工作流报告，并提示应回到模块 1、模块 2 或模块 3。
-3. 齐全时调用已有 `formatter.py`；无专用 formatter 时回退调用 `format_engine.py`。
-4. 输出 `formatted.docx`、`format_report.json/md` 和 `workflow_report.json/md`。
+1. 读取 `formatted.docx`、`format_spec.json` 和 `paper_structure.json`。
+2. 校验页面大小、页边距、正文、标题和表格基础格式。
+3. 输出 `validation_report.json` 和 `validation_report.md`。
+4. 用 pass/warn/fail 标记关键规则是否达标。
