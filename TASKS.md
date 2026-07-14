@@ -269,48 +269,53 @@ openxml_patches/       复杂 Word XML 补丁模块
 - 识别失败不会删除或重写未知内容。
 - `paper_structure.json` 能定位回原 docx 中的段落或对象。
 
-## 模块 4：Word 格式化执行
+## 模块 4：工作流门控与 formatter 启动
 
 ### 目标
 
-把 `raw.docx` 按 `format_spec.json` 和 `paper_structure.json` 转成 `formatted.docx`。
+检查前置模块产物是否齐全；如果缺失，返回缺失项和应回到的模块；如果齐全，调用已有 `formatter.py` 或 `format_engine.py` 完成格式化。
+
+模块 4 不自动补齐缺失产物，不重新解析格式要求，不重新识别论文结构，也不重新实现格式化规则。
 
 ### 输入
 
 - `raw.docx`
-- `format_spec.json`
+- 格式包目录，或显式传入 `format_spec.json` 和 `formatter.py`
 - `paper_structure.json`
-- 可选特殊补丁配置
+- 输出目录
 
 ### 输出
 
 - `formatted.docx`
 - `format_report.json`
 - `format_report.md`
+- `workflow_report.json`
+- `workflow_report.md`
 
 ### 执行原则
 
-- 优先修改原始 Word，不走完整 `Word → Markdown → Word` 重建，避免丢失图片、公式、表格、脚注等对象。
-- 普通样式使用 python-docx。
-- 高级结构使用 OpenXML patch。
-- 未识别对象默认保留原样。
+- 只做门控检查和执行编排。
+- 缺少前置产物时立即停止，报告应回到哪个模块。
+- 前置产物齐全时，优先调用格式包中的 `formatter.py`。
+- 如果没有专用 `formatter.py`，但有 `format_spec.json`，可回退调用 `format_engine.py`。
+- 不自动调用模块 1、模块 2 或模块 3 补齐缺失文件。
 
 ### 子任务
 
-- [ ] 实现页面设置。
-- [ ] 实现正文段落样式。
-- [ ] 实现标题样式。
-- [ ] 实现图题、表题样式。
-- [ ] 实现表格样式。
-- [ ] 实现页眉页脚。
-- [ ] 实现参考文献样式。
-- [ ] 将交叉引用和编号处理设计为独立子模块，先只做检测和报告，后续再自动改写。
+- [ ] 检查 `raw.docx` 是否存在。
+- [ ] 检查格式包或 `format_spec.json` 是否存在。
+- [ ] 检查 `formatter.py` 是否存在；不存在时检查是否可使用 `format_engine.py`。
+- [ ] 检查 `paper_structure.json` 是否存在。
+- [ ] 缺失任一必要产物时输出 blocked 状态和 `return_to` 模块提示。
+- [ ] 前置产物齐全时调用 `formatter.py` 或 `format_engine.py`。
+- [ ] 汇总 formatter/engine 的 `format_report.json`。
+- [ ] 输出 `workflow_report.json` 和 `workflow_report.md`。
 
 ### 验收标准
 
-- 输出 `.docx` 能被 Word 或 LibreOffice 正常打开。
-- 原始文档内容不丢失。
-- 格式报告能列出执行了哪些规则、跳过了哪些规则、哪些规则失败。
+- 前置产物缺失时不执行格式化，并明确返回缺失项和应回到的模块。
+- 前置产物齐全时能调用已有 formatter 输出 `.docx` 和格式报告。
+- 工作流报告能说明使用了哪个格式包、哪个 formatter、哪个结构文件，以及最终状态。
 
 ## 模块 5：格式合规性校验与报告
 
@@ -387,11 +392,11 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ## 当前下一步
 
-M1、M2、M3 和 M4 已完成。下一步建议进入 M5：端到端最小闭环。
+M1、M2、M3 和 M4（论文结构识别）已完成。下一步建议实现模块 4：工作流门控与 formatter 启动。
 
-M5 的第一批任务：
+模块 4 的第一批任务：
 
-1. 串联模块 0、模块 1、模块 2 和模块 3。
-2. 输入格式要求文件和原始论文 `.docx`。
-3. 自动创建或复用格式包。
-4. 输出格式化 Word、结构文件和报告。
+1. 检查 `raw.docx`、格式包或 `format_spec.json`、`formatter.py`、`paper_structure.json` 是否齐全。
+2. 缺失时输出 blocked 工作流报告，并提示应回到模块 1、模块 2 或模块 3。
+3. 齐全时调用已有 `formatter.py`；无专用 formatter 时回退调用 `format_engine.py`。
+4. 输出 `formatted.docx`、`format_report.json/md` 和 `workflow_report.json/md`。

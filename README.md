@@ -113,6 +113,21 @@ python3 paper_structure.py analyze \
 
 当前支持标题层级、摘要、关键词、目录、图题、表题、参考文献、致谢、附录等基础识别。无法可靠识别的复杂对象会进入 `preserve`，后续模块默认保留原样。
 
+## 模块 4：工作流门控与 formatter 启动
+
+模块 4 的设计目标是检查前置产物是否齐全，并在齐全时调用已有 formatter：
+
+```text
+raw.docx + format_spec.json/formatter.py + paper_structure.json
+        ↓
+检查产物是否齐全
+        ↓
+齐全：调用 formatter.py 或 format_engine.py
+缺失：返回 blocked 报告和应回到的模块
+```
+
+模块 4 不自动补齐缺失产物，不重新解析格式要求，也不重新识别论文结构。
+
 ## 安装依赖
 
 ```bash
