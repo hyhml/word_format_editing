@@ -205,17 +205,17 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ### 子任务
 
-- [ ] 从当前 `generate_formatter.py` 抽出通用 engine。
-- [ ] 保留生成 `formatter.py` 的能力，但让它尽量只加载配置。
-- [ ] 将 `format_thesis.py` 中可复用逻辑拆成 OpenXML patch 候选模块：
+- [x] 从当前 `generate_formatter.py` 抽出通用 engine。
+- [x] 保留生成 `formatter.py` 的能力，但让它尽量只加载配置。
+- [x] 将 `format_thesis.py` 中可复用逻辑拆成 OpenXML patch 候选模块：
   - 页眉页脚
   - 三线表
   - 图表题
   - 公式编号
   - 数学字体
   - 参考文献
-- [ ] 实现事务性执行：永远在临时目录和临时文件上工作。
-- [ ] 执行失败时保留原文件不变，并输出错误报告。
+- [x] 实现事务性执行：永远在临时目录和临时文件上工作。
+- [x] 执行失败时保留原文件不变，并输出错误报告。
 
 ### 验收标准
 
@@ -360,8 +360,8 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ### M3：通用格式引擎
 
-- 将当前 `generate_formatter.py` 升级为通用 engine。
-- 支持页面、正文、标题、表格基础格式。
+- [x] 将当前 `generate_formatter.py` 升级为通用 engine。
+- [x] 支持页面、正文、标题、表格基础格式。
 
 ### M4：论文结构识别
 
@@ -387,11 +387,11 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ## 当前下一步
 
-M1 和 M2 已完成。下一步建议进入 M3：通用格式引擎。
+M1、M2 和 M3 已完成。下一步建议进入 M4：论文结构识别。
 
-M3 的第一批任务：
+M4 的第一批任务：
 
-1. 将当前 `generate_formatter.py` 的格式执行逻辑抽出为通用 engine。
-2. 让格式包中的 `formatter.py` 变成加载 `format_spec.json` 的薄封装。
-3. 保持现有 `generate_formatter.py` 的兼容入口。
-4. 为页面、正文、标题和表格基础格式增加 engine 级测试。
+1. 从 `raw.docx` 读取段落、表格、图片和基础对象信息。
+2. 基于 Word 样式、编号模式和文本模式识别标题层级。
+3. 识别图题、表题和参考文献区段。
+4. 输出 `paper_structure.md` 和 `paper_structure.json`。

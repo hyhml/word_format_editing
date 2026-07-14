@@ -64,6 +64,35 @@ python3 format_parser.py parse \
 
 模块 1 会把无法确定的字段写入 `unknowns`，把多文件不一致的字段写入 `conflicts`，不会静默猜测或覆盖。
 
+## 模块 2：通用格式引擎
+
+模块 2 已实现为 `format_engine.py`。它读取 `format_spec.json` 并格式化 `.docx`：
+
+```bash
+python3 format_engine.py \
+  --spec formats/example_general/format_spec.json \
+  --input raw.docx \
+  --output formatted.docx \
+  --report format_report.json
+```
+
+`generate_formatter.py` 仍保留原入口，但现在生成的是薄封装脚本：
+
+```bash
+python3 generate_formatter.py \
+  --spec formats/example_general/format_spec.json \
+  --output formats/example_general/formatter.py
+```
+
+生成后的 formatter 用法：
+
+```bash
+python3 formats/example_general/formatter.py raw.docx formatted.docx \
+  --report format_report.json
+```
+
+当前引擎支持页面、正文、标题和表格基础格式。高级 OpenXML 补丁已有注册框架，尚未实现的补丁会写入 `skipped_patches`，不会中断基础格式化。
+
 ## 安装依赖
 
 ```bash

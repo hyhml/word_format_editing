@@ -1,5 +1,22 @@
 # 版本说明
 
+## v0.5.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 2 的第一版实现：`format_engine.py`。
+- 将 Word 格式化能力抽为通用引擎，支持旧版示例 spec 和模块 1 生成的新式 `format_spec.json`。
+- `generate_formatter.py` 改为生成薄封装 formatter，由封装脚本加载 `format_spec.json` 并调用通用引擎。
+- 新增 `openxml_patches/` patch 注册框架，预留页眉页脚、三线表、图表题、公式编号、数学字体、参考文献等高级补丁。
+- 支持事务性执行：在临时 docx 上处理，成功后写出；失败时不创建或覆盖输出文件。
+- 支持 `format_report.json`，记录 applied、skipped、skipped_patches 和 errors。
+- 新增模块 2 单元测试。
+
+### 验证
+
+- `PYTHONPATH=/tmp/word_format_deps python3 -m unittest discover -s tests -v`
+- `PYTHONPATH=/tmp/word_format_deps python3 -m py_compile format_registry.py format_parser.py format_engine.py generate_formatter.py format_thesis.py`
+
 ## v0.4.0 - 2026-07-14
 
 ### 新增
