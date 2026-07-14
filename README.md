@@ -158,6 +158,27 @@ python3 format_workflow.py run \
 
 缺少 `raw.docx`、`format_spec.json`、可用 formatter/engine 或 `paper_structure.json` 时，命令不会执行格式化，会输出 blocked 工作流报告和应回到的模块。
 
+## 模块 5：格式合规性校验与报告
+
+模块 5 已实现为 `format_validator.py`。它不修改 Word，只检查 `formatted.docx` 是否符合 `format_spec.json`，并输出校验报告：
+
+```bash
+python3 format_validator.py validate \
+  --input formatted.docx \
+  --spec formats/example_general/format_spec.json \
+  --structure paper_structure.json \
+  --report-json validation_report.json \
+  --report-md validation_report.md
+```
+
+校验结果分为：
+
+- `pass`：规则明确且实际格式符合要求。
+- `warn`：规则未知、对象缺失或当前版本无法可靠校验。
+- `fail`：规则明确但实际格式不符合要求。
+
+当前支持页面大小、方向、页边距、正文段落、标题段落、表格单元格、图题/表题基础段落格式和页眉页脚距离校验。复杂页眉页脚内容校验暂以 `warn` 记录。
+
 ## 安装依赖
 
 ```bash

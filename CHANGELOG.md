@@ -1,5 +1,22 @@
 # 版本说明
 
+## v0.8.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 5 的第一版实现：`format_validator.py`。
+- 支持读取 `formatted.docx`、`format_spec.json` 和 `paper_structure.json`，输出 `validation_report.json` 与 `validation_report.md`。
+- 支持 `pass`、`warn`、`fail`、`failed` 状态分级。
+- 支持校验页面大小、方向、页边距、正文段落、标题段落、表格单元格和图题/表题基础段落格式。
+- 支持页眉页脚距离校验；复杂页眉页脚内容先以 `warn` 记录。
+- 兼容旧版 `default/rules/tables` spec 和模块 1 新版 `body/headings/tables` spec。
+- 新增模块 5 单元测试。
+
+### 验证
+
+- `PYTHONPATH=/tmp/word_format_deps python3 -m unittest discover -s tests -v`
+- `PYTHONPATH=/tmp/word_format_deps python3 -m py_compile format_registry.py format_parser.py format_engine.py generate_formatter.py paper_structure.py format_workflow.py format_validator.py format_thesis.py openxml_patches/__init__.py`
+
 ## v0.7.0 - 2026-07-14
 
 ### 新增
