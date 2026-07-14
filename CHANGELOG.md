@@ -1,5 +1,25 @@
 # 版本说明
 
+## v0.4.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 1 的第一版实现：`format_parser.py`。
+- 支持把 `.txt`、`.md`、`.json`、`.docx`、可提取文本的 `.pdf` 格式要求文件解析为 `format_spec.md`、`format_spec.json` 和 `parse_report.json`。
+- 定义第一版 `format_spec.json` 输出结构，覆盖 metadata、page、body、headings、tables、figures、equations、references、headers_footers、derived_rules、conflicts、unknowns 和 validation_rules。
+- 支持 TXT 多编码读取，DOCX 段落/表格提取，PDF 文本提取和扫描版告警。
+- 支持常见页面、正文、标题、图题、表题、三线表、公式、参考文献和页眉页脚规则的确定性抽取。
+- 支持推导式规则记录，例如“比正文小一号”和“标题逐级递减”。
+- 支持多文件字段冲突记录，避免静默覆盖。
+- 支持缺失关键字段进入 `unknowns`，避免凭空猜测。
+- 新增模块 1 单元测试。
+
+### 验证
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile format_registry.py format_parser.py generate_formatter.py format_thesis.py`
+- `python3 format_parser.py parse --output-dir /tmp/format_parser_demo --description "通用公文格式示例" examples/format_spec.example.json`
+
 ## v0.3.0 - 2026-07-14
 
 ### 新增

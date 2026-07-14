@@ -164,14 +164,14 @@ formats/
 
 ### 子任务
 
-- [ ] 定义 `format_spec.json` schema 第一版。
-- [ ] 实现 TXT 格式要求提取。
-- [ ] 实现 DOCX 格式要求提取。
-- [ ] 实现 PDF 文本提取。
-- [ ] 实现格式要求归一化到 `format_spec.md`。
-- [ ] 实现从 `format_spec.md` 到 `format_spec.json` 的规则抽取。
-- [ ] 增加 `derived_rules`，支持“比正文小一号”“逐级递减”等推导式规则。
-- [ ] 增加冲突记录，例如同一字段在两个来源中不一致。
+- [x] 定义 `format_spec.json` schema 第一版。
+- [x] 实现 TXT 格式要求提取。
+- [x] 实现 DOCX 格式要求提取。
+- [x] 实现 PDF 文本提取。
+- [x] 实现格式要求归一化到 `format_spec.md`。
+- [x] 实现从 `format_spec.md` 到 `format_spec.json` 的规则抽取。
+- [x] 增加 `derived_rules`，支持“比正文小一号”“逐级递减”等推导式规则。
+- [x] 增加冲突记录，例如同一字段在两个来源中不一致。
 
 ### 验收标准
 
@@ -354,9 +354,9 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ### M2：基础格式规范解析
 
-- 支持 TXT/DOCX/PDF 文本抽取。
-- 生成 `format_spec.md` 和基础 `format_spec.json`。
-- 不追求复杂规则完整覆盖。
+- [x] 支持 TXT/DOCX/PDF 文本抽取。
+- [x] 生成 `format_spec.md` 和基础 `format_spec.json`。
+- [x] 不追求复杂规则完整覆盖。
 
 ### M3：通用格式引擎
 
@@ -387,14 +387,11 @@ openxml_patches/       复杂 Word XML 补丁模块
 
 ## 当前下一步
 
-建议从 M1 开始，不直接进入大规模代码生成。M1 的范围最小，但能奠定格式库复用机制：
+M1 和 M2 已完成。下一步建议进入 M3：通用格式引擎。
 
-M1 已完成。下一步建议进入 M2：基础格式规范解析。
+M3 的第一批任务：
 
-M2 的第一批任务：
-
-1. 定义 `format_spec.json` schema 第一版。
-2. 实现 TXT 格式要求提取。
-3. 实现 DOCX 格式要求提取。
-4. 实现 PDF 文本提取。
-5. 生成 `format_spec.md` 和基础 `format_spec.json`。
+1. 将当前 `generate_formatter.py` 的格式执行逻辑抽出为通用 engine。
+2. 让格式包中的 `formatter.py` 变成加载 `format_spec.json` 的薄封装。
+3. 保持现有 `generate_formatter.py` 的兼容入口。
+4. 为页面、正文、标题和表格基础格式增加 engine 级测试。

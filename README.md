@@ -39,6 +39,31 @@ python3 format_registry.py manifest-template \
 
 示例格式包位于 `formats/example_general/`。
 
+## 模块 1：格式要求解析
+
+模块 1 已实现为 `format_parser.py`。它把格式要求文件解析成：
+
+- `format_spec.md`：给人检查的标准格式说明。
+- `format_spec.json`：给后续模块执行的结构化格式规范。
+- `parse_report.json`：解析报告，包含来源、告警、冲突和待澄清字段。
+
+解析格式要求文件：
+
+```bash
+python3 format_parser.py parse \
+  --output-dir formats/my_format \
+  --description "武汉科技大学 本科毕业论文 2024" \
+  path/to/format.txt path/to/extra.docx
+```
+
+当前支持：
+
+- `.txt` / `.md` / `.json`：直接读取文本。
+- `.docx`：提取段落和表格文本。
+- `.pdf`：提取普通文本；扫描版 PDF 会产生告警，暂不做 OCR。
+
+模块 1 会把无法确定的字段写入 `unknowns`，把多文件不一致的字段写入 `conflicts`，不会静默猜测或覆盖。
+
 ## 安装依赖
 
 ```bash
