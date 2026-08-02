@@ -105,7 +105,7 @@ class FormatEngineTests(unittest.TestCase):
             self.assertEqual(report["status"], "success")
             self.assertTrue(out.is_file())
             self.assertIn("page: no known values", report["skipped"])
-            self.assertIn("header_footer: not implemented in module 2", report["skipped_patches"])
+            self.assertIn("header_footer: no applicable content or known rules", report["skipped_patches"])
             self.assertIn("not_a_patch: unknown patch", report["skipped_patches"])
 
     def test_failed_formatting_does_not_create_output(self) -> None:

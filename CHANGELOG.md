@@ -1,5 +1,70 @@
 # 版本说明
 
+## v0.11.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 5 高级 OpenXML 规则校验第一版。
+- 支持校验三线表 OpenXML 边框：表格顶线/底线、内部线、表头单元格底线。
+- 支持校验页眉页脚 OpenXML：header/footer relationship、section reference、页眉文本和页脚 `PAGE` 字段。
+- 支持校验图题/表题补丁结果：对齐、字体字号、首行缩进和 keep-with-next 可读状态。
+- 支持校验参考文献补丁结果：对齐、悬挂缩进和 NBSP 清理。
+- 支持校验数学字体：`settings.xml` 中的 `m:mathFont` 和已有数学 run 字体。
+- 支持公式编号保守校验：检测公式/编号段落对齐，并对复杂右侧编号 `eqArr` 强校验缺失给出 `warn`。
+- 新增高级校验测试，覆盖高级规则 pass、破坏三线表 fail、破坏页眉文本 fail。
+
+### 调整
+
+- 图题/表题校验期望首行缩进为 0，和模块 2 的 `captions` 补丁行为保持一致。
+- Markdown 校验报告新增 `caption`、`references` 和 `equations` 分组。
+
+### 验证
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile format_registry.py format_parser.py format_engine.py generate_formatter.py paper_structure.py format_workflow.py format_validator.py format_pipeline.py format_thesis.py openxml_patches/__init__.py tests/test_format_validator.py`
+
+## v0.10.0 - 2026-07-14
+
+### 新增
+
+- 完成模块 2 OpenXML 高级补丁第一版：`openxml_patches/` 不再只是占位注册框架。
+- 支持按 `openxml_patches` 显式配置执行补丁，也支持从 `format_spec.json` 自动推断三线表、页眉页脚、图表题、参考文献、数学字体和公式编号补丁。
+- 新增三线表补丁：设置表格顶线/底线、首行单元格底线，并移除左右和内部边框。
+- 新增页眉页脚补丁：支持简单页眉文本和居中页码字段。
+- 新增图表题补丁：支持图题/表题段落居中、字体字号、去首行缩进和 keep-with-next。
+- 新增参考文献补丁：支持参考文献段落对齐、悬挂缩进和 NBSP 清理。
+- 新增数学字体补丁：写入 `settings.xml` 数学字体，并设置已有数学 run 字体。
+- 新增公式编号保守补丁：对检测到的公式或编号段落执行居中对齐；复杂 `eqArr` 重排留待后续增强。
+- 新增 `tests/test_openxml_patches.py`，覆盖三线表、页眉页脚、图表题、参考文献、数学字体和公式段落对齐。
+
+### 调整
+
+- `format_engine.py` 会把 patch 内部非致命错误写入格式化报告的 `errors`，但不破坏已完成的基础格式化输出。
+
+### 验证
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile format_registry.py format_parser.py format_engine.py generate_formatter.py paper_structure.py format_workflow.py format_validator.py format_pipeline.py format_thesis.py openxml_patches/__init__.py tests/test_openxml_patches.py`
+
+## v0.9.0 - 2026-07-14
+
+### 新增
+
+- 完成 M5 端到端最小闭环：新增 `format_pipeline.py`。
+- 支持一个命令串联模块 0 到模块 5：格式包复用/创建、格式解析、formatter 生成、论文结构识别、格式化执行和格式校验。
+- 新格式要求未命中已有格式包时，会自动创建格式包目录，写入 `manifest.json`、`format_spec.md`、`format_spec.json`、`formatter.py` 和 `source/` 原始来源副本。
+- 支持输出 `pipeline_report.json` 与 `pipeline_report.md`，汇总格式包动作、工作流状态、校验状态和全部产物路径。
+- 新增端到端 pipeline 单元测试和 CLI 测试。
+
+### 修复
+
+- 修正模块 1 新式 spec 下标题首行缩进被正文 `first_line_indent_chars` 覆盖的问题；明确 `first_line_indent_cm` 优先于字符缩进。
+
+### 验证
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile format_registry.py format_parser.py format_engine.py generate_formatter.py paper_structure.py format_workflow.py format_validator.py format_pipeline.py format_thesis.py openxml_patches/__init__.py`
+
 ## v0.8.0 - 2026-07-14
 
 ### 新增

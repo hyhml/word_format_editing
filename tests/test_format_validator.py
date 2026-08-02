@@ -4,17 +4,20 @@ import json
 import subprocess
 import sys
 import unittest
+import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from docx import Document
 from docx.shared import Cm, Pt
+from lxml import etree
 
 from format_engine import format_document
 from format_validator import validate_document
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
 class FormatValidatorTests(unittest.TestCase):
@@ -115,6 +118,86 @@ class FormatValidatorTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+
+    def make_advanced_docx(self, path: Path) -> None:
+        document = Document()
+        document.add_paragraph("测试文档标题")
+        document.add_paragraph("图1-1 系统结构图")
+        document.add_paragraph("表1-1 参数表")
+        table = document.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "参数"
+        table.cell(0, 1).text = "值"
+        table.cell(1, 0).text = "A"
+        table.cell(1, 1).text = "1"
+        document.add_paragraph("参考文献")
+        document.add_paragraph("[1] 张三. 示例文献[J]. 2024.")
+        document.add_paragraph("致谢")
+        document.add_paragraph("E = mc^2 (1-1)")
+        document.save(path)
+
+    def make_advanced_spec(self) -> dict:
+        return {
+            "page": {"paper_size": "A4"},
+            "body": {
+                "font": {"east_asia": "宋体", "latin": "Times New Roman", "size_pt": 12},
+                "alignment": "justify",
+                "line_spacing": 1.5,
+                "first_line_indent_chars": 2,
+            },
+            "tables": {
+                "style": "three_line",
+                "caption_alignment": "center",
+                "font": {"east_asia": "宋体", "latin": "Times New Roman", "size_pt": 10.5},
+            },
+            "figures": {
+                "caption_alignment": "center",
+                "font": {"east_asia": "宋体", "latin": "Times New Roman", "size_pt": 10.5},
+            },
+            "references": {"alignment": "justify", "indent": "hanging"},
+            "headers_footers": {
+                "header": {"text": "测试页眉", "font": "宋体", "size_pt": 12, "alignment": "center"},
+                "footer": {"page_number": True, "font": "Times New Roman", "size_pt": 9, "alignment": "center"},
+            },
+            "equations": {"font": "Times New Roman", "numbering": "right_aligned"},
+        }
+
+    def make_advanced_structure(self, path: Path) -> None:
+        blocks = [
+            {"id": "p0000", "type": "body", "text": "测试文档标题", "source": {"kind": "paragraph", "index": 0}},
+            {"id": "p0001", "type": "figure_caption", "text": "图1-1 系统结构图", "source": {"kind": "paragraph", "index": 1}},
+            {"id": "p0002", "type": "table_caption", "text": "表1-1 参数表", "source": {"kind": "paragraph", "index": 2}},
+            {"id": "p0004", "type": "reference_item", "text": "[1] 张三. 示例文献[J]. 2024.", "source": {"kind": "paragraph", "index": 4}},
+            {"id": "tbl0000", "type": "table", "source": {"kind": "table", "index": 0}},
+        ]
+        path.write_text(
+            json.dumps(
+                {
+                    "metadata": {"paragraph_count": 7, "table_count": 1},
+                    "blocks": blocks,
+                    "sections": [],
+                    "figures": [blocks[1]],
+                    "tables": [blocks[4]],
+                    "table_captions": [blocks[2]],
+                    "references": [blocks[3]],
+                    "preserve": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    def make_advanced_formatted_case(self, root: Path) -> tuple[Path, Path, Path]:
+        raw = root / "raw.docx"
+        formatted = root / "formatted.docx"
+        spec_path = root / "format_spec.json"
+        structure_path = root / "paper_structure.json"
+        self.make_advanced_docx(raw)
+        spec = self.make_advanced_spec()
+        spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.make_advanced_structure(structure_path)
+        format_document(raw, formatted, spec)
+        return formatted, spec_path, structure_path
 
     def make_formatted_case(self, root: Path, with_table: bool = True) -> tuple[Path, Path, Path]:
         raw = root / "raw.docx"
@@ -218,6 +301,56 @@ class FormatValidatorTests(unittest.TestCase):
             self.assertTrue(report_json.is_file())
             self.assertTrue(report_md.is_file())
             self.assertEqual(json.loads(report_json.read_text(encoding="utf-8"))["status"], "pass")
+
+    def test_advanced_openxml_rules_validate(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            formatted, spec_path, structure_path = self.make_advanced_formatted_case(root)
+
+            report = validate_document(formatted, spec_path, structure_path)
+
+            self.assertEqual(report["status"], "warn")
+            self.assertEqual(report["summary"]["fail"], 0)
+            check_ids = {item["id"] for item in report["checks"] if item["result"] == "pass"}
+            self.assertIn("table.openxml.top.val", check_ids)
+            self.assertIn("headers_footers.header.text", check_ids)
+            self.assertIn("headers_footers.footer.page_number", check_ids)
+            self.assertIn("references.first_line_indent", check_ids)
+            self.assertIn("equations.math_font.settings", check_ids)
+            self.assertTrue(any(item["id"] == "equations.numbering.right_aligned" and item["result"] == "warn" for item in report["checks"]))
+
+    def test_broken_three_line_table_fails(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            formatted, spec_path, structure_path = self.make_advanced_formatted_case(root)
+            broken = root / "broken.docx"
+            with zipfile.ZipFile(formatted, "r") as source, zipfile.ZipFile(broken, "w", zipfile.ZIP_DEFLATED) as target:
+                for item in source.infolist():
+                    data = source.read(item.filename)
+                    if item.filename == "word/document.xml":
+                        xml = etree.fromstring(data)
+                        top = xml.find(f".//{{{W_NS}}}tblBorders/{{{W_NS}}}top")
+                        top.set(f"{{{W_NS}}}sz", "4")
+                        data = etree.tostring(xml, encoding="UTF-8", xml_declaration=True)
+                    target.writestr(item, data)
+
+            report = validate_document(broken, spec_path, structure_path)
+
+            self.assertEqual(report["status"], "fail")
+            self.assertTrue(any(item["id"] == "table.openxml.top.sz" and item["result"] == "fail" for item in report["checks"]))
+
+    def test_broken_header_text_fails(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            formatted, spec_path, structure_path = self.make_advanced_formatted_case(root)
+            spec = json.loads(spec_path.read_text(encoding="utf-8"))
+            spec["headers_footers"]["header"]["text"] = "不存在的页眉"
+            spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            report = validate_document(formatted, spec_path, structure_path)
+
+            self.assertEqual(report["status"], "fail")
+            self.assertTrue(any(item["id"] == "headers_footers.header.text" and item["result"] == "fail" for item in report["checks"]))
 
 
 if __name__ == "__main__":

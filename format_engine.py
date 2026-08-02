@@ -122,7 +122,7 @@ def set_paragraph_format(paragraph, fmt: dict[str, Any], report: dict[str, Any],
         paragraph_format.line_spacing = float(fmt["line_spacing"])
     if is_known(fmt.get("first_line_indent_cm")):
         paragraph_format.first_line_indent = Cm(float(fmt["first_line_indent_cm"]))
-    if is_known(fmt.get("first_line_indent_chars")):
+    elif is_known(fmt.get("first_line_indent_chars")):
         # Approximate 2 Chinese chars as 0.74cm, matching the existing v0.1 example.
         paragraph_format.first_line_indent = Cm(float(fmt["first_line_indent_chars"]) * 0.37)
     if is_known(fmt.get("left_indent_cm")):
@@ -408,6 +408,7 @@ def format_document(
             patch_result = apply_requested_patches(tmp_docx, spec)
             report["skipped_patches"].extend(patch_result["skipped"])
             report["skipped_patches"].extend(patch_result["unknown"])
+            report["errors"].extend({"message": error} for error in patch_result.get("errors", []))
             if patch_result["applied"]:
                 report["applied"].extend(f"patch:{name}" for name in patch_result["applied"])
 

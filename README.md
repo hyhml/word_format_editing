@@ -1,11 +1,41 @@
 # Word 格式自动化生成工具
 
-这个目录提供一个两步工具链：
+这个目录提供一个 Word 格式自动化工具链：
 
-1. 用 JSON 描述你的 Word 格式要求。
-2. 根据 JSON 自动生成一个独立的 Python 格式化脚本，再用该脚本处理原始 `.docx`。
+1. 从格式要求文件创建或复用格式包。
+2. 识别原始论文 `.docx` 的结构。
+3. 格式化 Word 并输出格式化、工作流和校验报告。
+
+如果已有结构化 JSON 规格，也可以继续使用旧的“生成 formatter 再处理 `.docx`”方式。
 
 长期目标是把它升级为一个 AI agent skill。后续开发任务见 [TASKS.md](TASKS.md)。
+
+## 端到端入口：模块 0 到模块 5
+
+`format_pipeline.py` 会串联格式包复用、格式解析、formatter 生成、论文结构识别、格式化执行和格式校验：
+
+```bash
+python3 format_pipeline.py run \
+  --input raw.docx \
+  --format-source path/to/format.txt \
+  --format-source path/to/extra.docx \
+  --description "武汉科技大学 本科毕业论文 2024" \
+  --name "武汉科技大学本科毕业论文格式 2024" \
+  --package-id wust_thesis_2024 \
+  --formats-dir formats \
+  --output-dir out
+```
+
+运行后会在 `out/` 下输出：
+
+- `formatted.docx`
+- `paper_structure.md` / `paper_structure.json` / `structure_report.json`
+- `workflow_report.json` / `workflow_report.md`
+- `format_report.json` / `format_report.md`
+- `validation_report.json` / `validation_report.md`
+- `pipeline_report.json` / `pipeline_report.md`
+
+如果格式要求命中已有格式包，pipeline 会直接复用；否则会在 `formats/` 下创建新格式包，包含 `manifest.json`、`format_spec.md`、`format_spec.json`、`formatter.py` 和 `source/` 原始格式要求文件副本。
 
 ## 模块 0：格式包复用判断
 
@@ -91,7 +121,7 @@ python3 formats/example_general/formatter.py raw.docx formatted.docx \
   --report format_report.json
 ```
 
-当前引擎支持页面、正文、标题和表格基础格式。高级 OpenXML 补丁已有注册框架，尚未实现的补丁会写入 `skipped_patches`，不会中断基础格式化。
+当前引擎支持页面、正文、标题和表格基础格式。`openxml_patches/` 已提供高级补丁第一版，支持三线表、页眉页脚、图表题、参考文献、数学字体和公式段落对齐；缺少规则或文档中没有适用对象时会写入 `skipped_patches`，不会中断基础格式化。公式编号当前是保守实现，复杂公式矩阵和 Word 原生 `eqArr` 重排仍需后续增强。
 
 ## 模块 3：论文结构识别
 
@@ -177,7 +207,16 @@ python3 format_validator.py validate \
 - `warn`：规则未知、对象缺失或当前版本无法可靠校验。
 - `fail`：规则明确但实际格式不符合要求。
 
-当前支持页面大小、方向、页边距、正文段落、标题段落、表格单元格、图题/表题基础段落格式和页眉页脚距离校验。复杂页眉页脚内容校验暂以 `warn` 记录。
+当前支持页面大小、方向、页边距、正文段落、标题段落、表格单元格、图题/表题基础段落格式、页眉页脚距离，以及模块 2 OpenXML 高级补丁的第一版校验：
+
+- 三线表边框。
+- 页眉文本和页脚页码字段。
+- 图题/表题缩进、对齐、字体字号。
+- 参考文献对齐、悬挂缩进和 NBSP 清理。
+- 数学字体设置。
+- 公式段落保守对齐校验。
+
+复杂公式右侧编号、矩阵和多行公式的 Word 原生 `eqArr` 布局仍以 `warn` 记录。
 
 ## 安装依赖
 
