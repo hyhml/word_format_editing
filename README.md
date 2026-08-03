@@ -10,6 +10,56 @@
 
 长期目标是把它升级为一个 AI agent skill。后续开发任务见 [TASKS.md](TASKS.md)。
 
+## v0.12 格式要求编译器（Schema v2）
+
+`format_compiler.py` 专门处理“格式要求识别”阶段，把 `.txt`、`.md`、`.json`、`.docx` 或 `.pdf` 编译成唯一、规整的 `format_spec.json`：
+
+```bash
+python3 format_compiler.py compile \
+  --source path/to/format.pdf \
+  --source path/to/extra.docx \
+  --name "某大学本科毕业论文格式 2026" \
+  --description "学校规范与学院补充要求" \
+  --output-dir out/format-recognition
+```
+
+输出只有三个正式产物：
+
+- `format_spec.json`：Schema v2 的确定性执行规范。
+- `recognition_report.json`：来源证据、覆盖率、冲突、保留项和校验详情。
+- `recognition_report.md`：供人工检查的识别摘要。
+
+Schema v2 对每个已识别属性只允许三种动作：`set`、`preserve`、`remove`。规范没有要求、无法识别或存在未解决冲突时使用 `preserve`，不会静默填入宋体、小四等常见默认值。相同目标和属性出现冲突时，正式规范只保留一个 `preserve` 结果，候选值和证据写入识别报告。
+
+生成 AI 分析请求：
+
+```bash
+python3 format_compiler.py ai-request \
+  --source path/to/format.pdf \
+  --output ai_request.json
+```
+
+AI 必须返回带来源块 ID 的候选规则。将候选规则交回编译器：
+
+```bash
+python3 format_compiler.py compile \
+  --source path/to/format.pdf \
+  --ai-candidates ai_candidates.json \
+  --output-dir out/format-recognition
+```
+
+校验已有 v2 规范：
+
+```bash
+python3 format_spec_validator_v2.py \
+  out/format-recognition/format_spec.json \
+  --report out/format-recognition/schema_validation.json
+```
+
+校验失败时，报告中的 `repair_request` 可直接返回 AI 做定点修复；AI 不得补充无来源格式值。当前 Word 格式化引擎尚未适配 Schema v2，会明确拒绝执行 v2 识别产物。旧 pipeline 在执行器适配完成前继续使用旧规格，避免产生错误格式化结果。
+
+仓库内 Skill 位于 `skills/compile-format-requirements/`。它要求 AI 对每个来源块进行分类、引用真实证据，并在最多三轮“编译—校验—定点修复”后将仍无法确定的局部规则保留原格式。
+
 ## 端到端入口：模块 0 到模块 5
 
 `format_pipeline.py` 会串联格式包复用、格式解析、formatter 生成、论文结构识别、格式化执行和格式校验：

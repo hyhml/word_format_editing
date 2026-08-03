@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compile Format Requirements"
+  short_description: "将论文格式要求编译为唯一、可追溯、可校验的规范文件"
+  default_prompt: "Use $compile-format-requirements to compile these thesis format requirements into a canonical format_spec.json."

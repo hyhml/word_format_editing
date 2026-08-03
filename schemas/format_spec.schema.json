@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hyhml/word_format_editing/schemas/format_spec.schema.json",
+  "title": "Canonical Word Format Specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "metadata", "policies", "document", "targets", "selectors", "recognition"],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "institution", "document_type", "year", "description", "sources"],
+      "properties": {
+        "name": {"type": ["string", "null"]},
+        "institution": {"type": ["string", "null"]},
+        "document_type": {"type": ["string", "null"]},
+        "year": {"type": ["string", "null"]},
+        "description": {"type": "string"},
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "path", "type"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "path": {"type": "string", "minLength": 1},
+              "type": {"enum": ["txt", "md", "json", "docx", "pdf"]},
+              "warnings": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unspecified_property_action", "selector_priority", "conflict_action"],
+      "properties": {
+        "unspecified_property_action": {"const": "preserve"},
+        "conflict_action": {"const": "preserve"},
+        "selector_priority": {
+          "type": "array",
+          "const": ["explicit_location", "structure", "style", "regex", "body_fallback"]
+        }
+      }
+    },
+    "document": {"$ref": "#/$defs/targetRule"},
+    "targets": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/targetRule"}
+    },
+    "selectors": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/selector"}
+    },
+    "recognition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "compiler", "requires_review"],
+      "properties": {
+        "status": {"enum": ["success", "warn", "blocked"]},
+        "compiler": {"type": "string", "minLength": 1},
+        "requires_review": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "targetRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["properties"],
+      "properties": {
+        "properties": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/propertyAction"}
+        }
+      }
+    },
+    "propertyAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "value", "evidence_ids"],
+          "properties": {
+            "action": {"const": "set"},
+            "value": {},
+            "unit": {"type": "string"},
+            "evidence_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+            "method": {"enum": ["deterministic", "ai", "derived", "user_confirmed"]},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "reason"],
+          "properties": {
+            "action": {"const": "preserve"},
+            "reason": {
+              "enum": ["not_specified", "not_recognized", "unresolved_value", "unresolved_conflict", "unresolved_dependency", "unsupported", "explicitly_preserve"]
+            },
+            "evidence_ids": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "evidence_ids"],
+          "properties": {
+            "action": {"const": "remove"},
+            "evidence_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+            "method": {"enum": ["deterministic", "ai", "user_confirmed"]},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      ]
+    },
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "explicit_locations": {"type": "array", "items": {"type": "string"}},
+        "structure_type": {"type": "string"},
+        "structure_level": {"type": "integer", "minimum": 1, "maximum": 9},
+        "style_names": {"type": "array", "items": {"type": "string"}},
+        "fallback_regex": {"type": "array", "items": {"type": "string"}},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    }
+  }
+}
