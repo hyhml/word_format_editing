@@ -40,6 +40,8 @@ v2.1 新增四类可规整能力：
 
 编译器只统计 Word 格式问题。内容质量、本人签名、提交手续、打印和实体装订不进入格式未解决项。页眉等动态文字可以使用 `degree_name` 等模板字段，待后续论文结构识别从目标 Word 确定论文类型；运行时输入无法确定时保持原文字。
 
+仓库内的 `resolve-format-runtime-context` skill 负责按需解析这些动态字段。它没有新增 CLI：skill 通过 `runtime_context.py` 构造最小证据请求，由 AI 只判断 `format_spec` 实际需要的固定枚举，再校验文档指纹、字段范围、证据 ID 和置信度。当前支持从目标 DOCX 判断 `document.degree_type`，并将其安全映射为页眉模板的 `degree_name`；失败或不确定时不修改原文字。
+
 生成 AI 分析请求：
 
 ```bash

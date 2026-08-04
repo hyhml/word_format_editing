@@ -68,6 +68,8 @@ Read [references/compilation-contract.md](references/compilation-contract.md) be
 
 10. Deliver `format_spec.json`, `recognition_report.json`, and `recognition_report.md`. Explain conflicts and unresolved blocks. Do not invoke the legacy formatter: it intentionally rejects Schema v2.
 
+11. If the final spec declares template runtime inputs, do not resolve them from the requirements file. When a target paper DOCX is later supplied, hand them to the `resolve-format-runtime-context` skill; if no paper is supplied, leave them dynamic.
+
 ## Integrity rules
 
 - Treat source evidence as authoritative; treat model knowledge as non-evidence.

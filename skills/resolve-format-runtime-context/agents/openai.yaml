@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve Format Runtime Context"
+  short_description: "Infer format-only context from a target Word file"
+  default_prompt: "Use $resolve-format-runtime-context to resolve only the runtime variables required by format_spec from this target Word file."
