@@ -286,6 +286,34 @@ class FormatCompilerTests(unittest.TestCase):
             self.assertEqual(template["segments"][3], {"kind": "leader", "character": "…"})
             self.assertFalse(report["validation"]["errors"])
 
+    def test_running_header_template_accepts_runtime_degree_name(self) -> None:
+        spec = FormatSpecV2Tests().minimal_spec()
+        spec["targets"]["body.header.odd"] = {
+            "properties": {
+                "content.template": {
+                    "action": "set",
+                    "value": {
+                        "segments": [
+                            {"kind": "field", "field": "institution_name"},
+                            {"kind": "spacer", "count": 2, "unit": "character"},
+                            {"kind": "field", "field": "degree_name"},
+                            {"kind": "literal", "text": "学位论文"},
+                            {"kind": "tab", "alignment": "right"},
+                            {"kind": "literal", "text": "第"},
+                            {"kind": "field", "field": "page_number"},
+                            {"kind": "literal", "text": "页"},
+                        ]
+                    },
+                    "evidence_ids": ["source_01_line_0001"],
+                }
+            }
+        }
+
+        report = validate_spec(spec)
+
+        self.assertEqual(report["status"], "success")
+        self.assertFalse(report["errors"])
+
     def test_conditional_candidates_become_one_unique_property_action(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -592,6 +620,11 @@ class FormatCompilerTests(unittest.TestCase):
             )
             request = json.loads(output.read_text(encoding="utf-8"))
             self.assertTrue(request["ontology"]["targets"])
+            self.assertIn("内容质量", request["instruction"])
+            self.assertEqual(
+                request["ontology"]["template_field_runtime_inputs"]["degree_name"],
+                "document.degree_type",
+            )
             self.assertEqual(request["blocks"][0]["id"], "source_01_line_0001")
             self.assertIn("block_classifications", request["output_contract"])
 

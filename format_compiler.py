@@ -511,7 +511,7 @@ def render_report(report: dict[str, Any]) -> str:
         f"- 来源文件：{len(report['sources'])}",
         f"- 候选规则：{report['candidate_count']}",
         f"- 冲突：{len(report['conflicts'])}",
-        f"- 局部未解决要求：{len(report.get('unresolved_items', []))}",
+        f"- 局部未解决格式要求：{len(report.get('unresolved_items', []))}",
         f"- 映射覆盖率：{report['coverage']['mapped_ratio']:.2%}",
         "",
         "## 来源警告",
@@ -535,7 +535,7 @@ def render_report(report: dict[str, Any]) -> str:
         lines.extend(f"- {item['target']}.{item['property']}：保持原格式" for item in report["conflicts"])
     else:
         lines.append("- 无")
-    lines.extend(["", "## 局部未解决要求", ""])
+    lines.extend(["", "## 局部未解决格式要求", ""])
     if report.get("unresolved_items"):
         for item in report["unresolved_items"]:
             notes = f"；{item['notes']}" if item.get("notes") else ""
@@ -656,7 +656,7 @@ def write_outputs(output_dir: Path, spec: dict[str, Any], report: dict[str, Any]
 
 def ai_request(sources: list[RequirementSource]) -> dict[str, Any]:
     return {
-        "instruction": "依据来源证据补充确定性编译器未覆盖的格式规则；不得猜测缺省值。",
+        "instruction": "仅依据来源证据补充确定性编译器未覆盖的Word格式规则；内容质量、本人签名、行政提交、打印和实体装订不属于格式未解决项；不得猜测缺省值。",
         "output_contract": {
             "candidates": [
                 {
@@ -678,7 +678,7 @@ def ai_request(sources: list[RequirementSource]) -> dict[str, Any]:
             ],
             "unresolved_items": [
                 {
-                    "evidence_id": "部分规则无法规整时的来源块ID",
+                    "evidence_id": "部分格式规则无法规整时的来源块ID",
                     "text": "无法规整的原文片段",
                     "reason": "ambiguous|missing_dependency|unsupported_property|source_incomplete",
                     "notes": "为何必须保持原格式或等待扩展"

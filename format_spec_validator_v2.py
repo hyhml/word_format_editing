@@ -77,6 +77,9 @@ def validate_template(value: Any, path: list[str]) -> list[dict[str, Any]]:
             character = segment.get("character")
             if set(segment) != {"kind", "character"} or not isinstance(character, str) or len(character) != 1:
                 errors.append(error_item("invalid_template_segment", segment_path, "leader 需要单个 character", segment))
+        elif kind == "tab":
+            if set(segment) != {"kind", "alignment"} or segment.get("alignment") not in {"left", "center", "right"}:
+                errors.append(error_item("invalid_template_segment", segment_path, "tab 需要 left/center/right alignment", segment))
         else:
             errors.append(error_item("invalid_template_segment", segment_path, "未知模板片段类型", kind))
     return errors

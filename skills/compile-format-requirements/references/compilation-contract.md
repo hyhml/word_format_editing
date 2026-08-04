@@ -57,7 +57,9 @@ For numbering and content layouts, use `content.template` with structured segmen
 }
 ```
 
-Use only template fields exposed by the ontology. Punctuation is a `literal` segment. Do not put natural-language layout instructions into template values.
+Use only template fields exposed by the ontology. Punctuation is a `literal` segment. Use a `tab` segment with `left`, `center`, or `right` alignment for header/TOC tab stops. Do not put natural-language layout instructions into template values.
+
+Some template fields declare runtime inputs in the ontology. For example, `degree_name` is resolved from `document.degree_type` in the paper being formatted. Keep this field dynamic instead of guessing “硕士” or “博士”; if the later paper-analysis stage cannot establish the input, the executor must preserve the original text.
 
 ## Block classification
 
@@ -70,6 +72,8 @@ Use only template fields exposed by the ontology. Punctuation is a `literal` seg
 Classify every block. Never call a block `explanation` merely because its rule is difficult.
 
 If one block contains both normalized candidates and unsupported details, classify it as `requirement`, emit the supported candidates, and add every unsupported fragment to `unresolved_items`. Allowed reasons are `ambiguous`, `missing_dependency`, `unsupported_property`, and `source_incomplete`.
+
+Only format-related fragments belong in `unresolved_items`. Content-quality statements, required personal signatures, administrative submission instructions, printing, and physical binding are outside this compiler's scope. They may be mentioned in classification notes but do not make the format specification incomplete.
 
 ## Normalization
 

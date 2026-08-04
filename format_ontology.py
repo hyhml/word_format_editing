@@ -133,6 +133,8 @@ CONDITION_FIELD_DEFINITIONS: dict[str, dict[str, Any]] = {
 }
 
 TEMPLATE_FIELDS = {
+    "institution_name",
+    "degree_name",
     "label",
     "number",
     "chapter_number",
@@ -147,6 +149,12 @@ TEMPLATE_FIELDS = {
     "volume",
     "issue",
     "pages",
+}
+
+TEMPLATE_FIELD_RUNTIME_INPUTS = {
+    "institution_name": "metadata.institution",
+    "degree_name": "document.degree_type",
+    "page_number": "document.current_page_number",
 }
 
 ALIGNMENTS = {"left", "center", "right", "justify", "distributed"}
@@ -275,4 +283,5 @@ def ontology_summary() -> dict[str, Any]:
             "operators": sorted(CONDITION_OPERATORS),
         },
         "template_fields": sorted(TEMPLATE_FIELDS),
+        "template_field_runtime_inputs": TEMPLATE_FIELD_RUNTIME_INPUTS,
     }

@@ -30,7 +30,7 @@ Read [references/compilation-contract.md](references/compilation-contract.md) be
 
 3. For every explicit requirement, emit concrete normalized candidates with real `evidence_ids`. Expand inheritance, conditions, and exceptions. Resolve relative values only when their dependencies are evidenced. Never insert common thesis defaults.
 
-4. Classify every source block as `requirement`, `explanation`, `example`, `irrelevant`, or `unresolved`. A `requirement` block must support at least one candidate; otherwise classify it as `unresolved`. When a block is only partially representable, also emit each unsupported fragment in `unresolved_items`.
+4. Classify every source block as `requirement`, `explanation`, `example`, `irrelevant`, or `unresolved`. A `requirement` block must support at least one candidate; otherwise classify it as `unresolved`. When a block is only partially representable, emit each unsupported **format** fragment in `unresolved_items`. Content-quality guidance, personal signatures, submission administration, printing, and physical binding are outside the format compiler's scope and must not inflate unresolved format counts.
 
 5. Compile and merge deterministic and AI recognition:
 
@@ -77,3 +77,5 @@ Read [references/compilation-contract.md](references/compilation-contract.md) be
 - Use `preserve` semantics for unspecified or unresolved formatting; never substitute 宋体、小四、A4, or other defaults without evidence.
 - Keep format-requirement extraction regex internal. Put regex into final selectors only when it locates a paper object.
 - Do not leave natural-language instructions, inheritance, or relative calculations for the future formatter.
+- Do not treat writing quality, authorship/signature, administrative submission, printing, or physical binding as Word-format rules. Classify whole blocks as `irrelevant` when appropriate; ignore only the out-of-scope fragment when the same block also contains real format rules.
+- Running-header text may use structured template fields such as `degree_name` when the value must be resolved from the paper being formatted. The future paper-analysis stage supplies that context; unknown runtime inputs must preserve the original text.
