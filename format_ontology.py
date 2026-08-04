@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "2.1.0"
 
 TARGETS = {
     "document.page",
@@ -42,6 +42,8 @@ TARGETS = {
     "list_of_figures",
     "list_of_tables",
     "symbols_glossary",
+    "references",
+    "appendix",
     "introduction",
     "conclusion",
     "body.paragraph",
@@ -110,7 +112,42 @@ PRESERVE_REASONS = {
     "explicitly_preserve",
 }
 
-ACTIONS = {"set", "preserve", "remove"}
+ACTIONS = {"set", "preserve", "remove", "conditional"}
+
+CONDITION_FIELDS = {
+    "document.degree_type",
+    "document.program_type",
+    "document.instruction_language",
+    "document.has_special_language_exception",
+    "target.exists",
+    "target.has_content",
+}
+CONDITION_OPERATORS = {"equals", "not_equals", "in", "not_in", "exists"}
+CONDITION_FIELD_DEFINITIONS: dict[str, dict[str, Any]] = {
+    "document.degree_type": {"type": "enum", "values": {"doctoral", "master", "professional_master"}},
+    "document.program_type": {"type": "string"},
+    "document.instruction_language": {"type": "enum", "values": {"chinese", "foreign_language"}},
+    "document.has_special_language_exception": {"type": "boolean"},
+    "target.exists": {"type": "boolean", "requires_target": True},
+    "target.has_content": {"type": "boolean", "requires_target": True},
+}
+
+TEMPLATE_FIELDS = {
+    "label",
+    "number",
+    "chapter_number",
+    "section_number",
+    "title",
+    "page_number",
+    "sequence_number",
+    "author",
+    "work_title",
+    "publication",
+    "year",
+    "volume",
+    "issue",
+    "pages",
+}
 
 ALIGNMENTS = {"left", "center", "right", "justify", "distributed"}
 ORIENTATIONS = {"portrait", "landscape"}
@@ -186,9 +223,18 @@ PROPERTY_DEFINITIONS: dict[str, dict[str, Any]] = {
     "references.style": {"type": "string"},
     "references.hanging_indent_cm": {"type": "number", "minimum": 0, "maximum": 20, "unit": "cm"},
     "section.start": {"type": "enum", "values": {"continuous", "new_page", "odd_page", "even_page"}},
+    "section.position": {"type": "enum", "values": {"first", "last"}},
+    "section.relative_position": {"type": "enum", "values": {"before", "after"}},
+    "section.relative_to": {"type": "target"},
     "text.content": {"type": "string"},
+    "content.template": {"type": "template"},
+    "text.wrap": {"type": "enum", "values": {"allow", "forbid"}},
     "text.script": {"type": "enum", "values": {"simplified_chinese", "traditional_chinese", "latin", "mixed"}},
     "text.capitalization": {"type": "enum", "values": {"title_case", "sentence_case", "upper", "lower"}},
+    "text.capitalization_exceptions": {
+        "type": "enum_list",
+        "values": {"article", "preposition", "conjunction"},
+    },
     "content.count_min": {"type": "integer", "minimum": 0, "maximum": 10000},
     "content.count_max": {"type": "integer", "minimum": 0, "maximum": 1000000},
     "content.length_min": {"type": "integer", "minimum": 0, "maximum": 1000000},
@@ -218,4 +264,15 @@ def ontology_summary() -> dict[str, Any]:
         "properties": definitions,
         "actions": sorted(ACTIONS),
         "preserve_reasons": sorted(PRESERVE_REASONS),
+        "conditions": {
+            "fields": {
+                name: {
+                    key: sorted(value) if isinstance(value, set) else value
+                    for key, value in definition.items()
+                }
+                for name, definition in CONDITION_FIELD_DEFINITIONS.items()
+            },
+            "operators": sorted(CONDITION_OPERATORS),
+        },
+        "template_fields": sorted(TEMPLATE_FIELDS),
     }

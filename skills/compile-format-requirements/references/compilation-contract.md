@@ -12,6 +12,11 @@ Write one JSON object:
       "property": "font.size_pt",
       "value": 12,
       "unit": "pt",
+      "when": {
+        "field": "document.degree_type",
+        "operator": "equals",
+        "value": "master"
+      },
       "evidence_ids": ["source_01_page_0008_line_0003"],
       "confidence": 0.98
     }
@@ -36,6 +41,24 @@ Write one JSON object:
 
 Use only targets and properties included in `ai_request.json`. Omit `unit` only when the property definition has no unit. Confidence must be between 0 and 1.
 
+`when` is optional. Use it only when the source explicitly states applicability, and only with the condition fields, operators, targets, and normalized values supplied in `ai_request.json`. Candidates for the same target/property under different conditions compile into one `conditional` action. If several cases match at execution time, the mandatory result is `preserve`; never rely on case order.
+
+For numbering and content layouts, use `content.template` with structured segments instead of prose:
+
+```json
+{
+  "segments": [
+    {"kind": "field", "field": "chapter_number"},
+    {"kind": "spacer", "count": 2, "unit": "character"},
+    {"kind": "field", "field": "title"},
+    {"kind": "leader", "character": "…"},
+    {"kind": "field", "field": "page_number"}
+  ]
+}
+```
+
+Use only template fields exposed by the ontology. Punctuation is a `literal` segment. Do not put natural-language layout instructions into template values.
+
 ## Block classification
 
 - `requirement`: Contains an executable or conditional formatting requirement. Emit at least one candidate using this block.
@@ -59,6 +82,8 @@ Convert values before emitting candidates:
 - Alignment, numbering, orientation, and positions to ontology enums.
 
 Expand relative and inherited rules into concrete candidates. If a dependency is unavailable, classify the requirement as `unresolved`; do not estimate it.
+
+Represent explicit conditional applicability with `when`, chapter placement with `section.position` or a `section.relative_position` plus `section.relative_to`, and mixed in-paragraph formatting with the dedicated child targets whose selectors use `text_span` scope.
 
 ## Evidence and conflicts
 

@@ -126,7 +126,7 @@ class FormatEngineTests(unittest.TestCase):
     def test_schema_v2_is_rejected_until_engine_adapter_exists(self) -> None:
         with TemporaryDirectory() as tmp:
             spec_path = Path(tmp) / "format_spec.json"
-            spec_path.write_text('{"schema_version": "2.0.0"}', encoding="utf-8")
+            spec_path.write_text('{"schema_version": "2.1.0"}', encoding="utf-8")
 
             with self.assertRaisesRegex(ValueError, "尚未支持 format_spec schema v2"):
                 load_spec(spec_path)

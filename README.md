@@ -10,7 +10,7 @@
 
 长期目标是把它升级为一个 AI agent skill。后续开发任务见 [TASKS.md](TASKS.md)。
 
-## v0.12 格式要求编译器（Schema v2）
+## v0.13 格式要求编译器（Schema v2.1）
 
 `format_compiler.py` 专门处理“格式要求识别”阶段，把 `.txt`、`.md`、`.json`、`.doc`、`.docx` 或 `.pdf` 编译成唯一、规整的 `format_spec.json`。旧版 `.doc` 需要系统安装 `antiword`，且只能可靠保留文字证据；若格式本身也承载要求，优先转换为 `.docx`：
 
@@ -29,7 +29,14 @@ python3 format_compiler.py compile \
 - `recognition_report.json`：来源证据、覆盖率、冲突、保留项和校验详情。
 - `recognition_report.md`：供人工检查的识别摘要。
 
-Schema v2 对每个已识别属性只允许三种动作：`set`、`preserve`、`remove`。规范没有要求、无法识别或存在未解决冲突时使用 `preserve`，不会静默填入宋体、小四等常见默认值。相同目标和属性出现冲突时，正式规范只保留一个 `preserve` 结果，候选值和证据写入识别报告。
+Schema v2.1 对每个已识别属性允许四种唯一动作：`set`、`preserve`、`remove`、`conditional`。规范没有要求、无法识别或存在未解决冲突时使用 `preserve`，不会静默填入宋体、小四等常见默认值。相同目标和属性出现冲突时，正式规范只保留一个 `preserve` 结果，候选值和证据写入识别报告；不同适用条件下的值会合并为一个 `conditional` 动作，多条件同时命中时仍强制保持原格式。
+
+v2.1 新增四类可规整能力：
+
+- `content.template` 使用字段、字面量、空格和引导符 token 描述编号与内容模板，不把自然语言说明留给执行器。
+- `section.position`、`section.relative_position`、`section.relative_to` 描述章节顺序。
+- `text_span` 选择器通过父目标、捕获组或排除目标定位段内不同格式的文字片段。
+- `conditional` 使用固定上下文字段和运算符表达学位类型、培养类型、语言例外及“存在内容时”等条件；条件输入未知、未命中或同时命中多个不一致分支时均默认 `preserve`。
 
 生成 AI 分析请求：
 

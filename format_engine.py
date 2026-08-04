@@ -55,7 +55,7 @@ def load_spec(path: Path) -> dict[str, Any]:
         spec = json.load(handle)
     if not isinstance(spec, dict):
         raise ValueError("format_spec.json 顶层必须是 JSON 对象")
-    if spec.get("schema_version") == "2.0.0":
+    if str(spec.get("schema_version", "")).startswith("2."):
         raise ValueError("当前格式化引擎尚未支持 format_spec schema v2；拒绝误用识别阶段产物")
     return spec
 

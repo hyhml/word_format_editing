@@ -14,7 +14,8 @@ from docx import Document
 from format_compiler import compile_sources, empty_spec
 from format_normalization import normalize_font_size, normalize_length_cm, normalize_line_spacing
 from format_ontology import PROPERTY_NAMES, TARGETS
-from format_spec_validator_v2 import load_and_validate, validate_spec
+from format_spec_validator_v2 import load_and_validate, load_schema, validate_spec
+from jsonschema import Draft202012Validator
 from requirement_source import extract_requirement_sources
 from requirement_patterns import PATTERNS
 from selector_patterns import SELECTOR_PATTERNS
@@ -36,11 +37,19 @@ class FormatSpecV2Tests(unittest.TestCase):
         self.assertIn("equation.number", TARGETS)
         self.assertIn("page.margin_top_cm", PROPERTY_NAMES)
         self.assertIn("paragraph.keep_with_next", PROPERTY_NAMES)
+        self.assertIn("content.template", PROPERTY_NAMES)
+        self.assertIn("section.position", PROPERTY_NAMES)
 
     def test_minimal_spec_is_schema_valid(self) -> None:
         report = validate_spec(self.minimal_spec())
         self.assertEqual(report["status"], "success")
         self.assertFalse(report["errors"])
+
+    def test_schema_itself_is_valid_and_condition_fail_safe_is_explicit(self) -> None:
+        Draft202012Validator.check_schema(load_schema())
+        spec = self.minimal_spec()
+        self.assertEqual(spec["policies"]["unknown_condition_action"], "preserve")
+        self.assertEqual(spec["policies"]["multiple_condition_match_action"], "preserve")
 
     def test_invalid_value_and_regex_return_repair_feedback(self) -> None:
         spec = self.minimal_spec()
@@ -79,7 +88,7 @@ class FormatSpecV2Tests(unittest.TestCase):
     def test_duplicate_json_key_is_rejected_before_validation(self) -> None:
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "format_spec.json"
-            path.write_text('{"schema_version":"2.0.0","schema_version":"2.0.0"}', encoding="utf-8")
+            path.write_text('{"schema_version":"2.1.0","schema_version":"2.1.0"}', encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "重复JSON字段"):
                 load_and_validate(path)
 
@@ -158,7 +167,7 @@ class FormatCompilerTests(unittest.TestCase):
             spec, report, _sources = compile_sources([source], "测试论文格式", "")
 
             self.assertNotEqual(report["status"], "blocked")
-            self.assertEqual(spec["schema_version"], "2.0.0")
+            self.assertEqual(spec["schema_version"], "2.1.0")
             self.assertEqual(spec["document"]["properties"]["page.margin_top_cm"]["value"], 2.5)
             body = spec["targets"]["body.paragraph"]["properties"]
             self.assertEqual(body["font.size_pt"]["value"], 12)
@@ -232,6 +241,195 @@ class FormatCompilerTests(unittest.TestCase):
             self.assertEqual(action["action"], "set")
             self.assertEqual(action["method"], "ai")
             self.assertEqual(report["ai_candidate_count"], 1)
+
+    def test_content_template_and_section_position_are_normalized(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "requirements.txt"
+            source.write_text("目录一级条目为章号、空两格、标题、引导点和页码。\n参考文献置于全文末。", encoding="utf-8")
+            ai = root / "ai.json"
+            ai.write_text(
+                json.dumps(
+                    {
+                        "candidates": [
+                            {
+                                "target": "table_of_contents.level_1",
+                                "property": "content.template",
+                                "value": {
+                                    "segments": [
+                                        {"kind": "field", "field": "chapter_number"},
+                                        {"kind": "spacer", "count": 2, "unit": "character"},
+                                        {"kind": "field", "field": "title"},
+                                        {"kind": "leader", "character": "…"},
+                                        {"kind": "field", "field": "page_number"},
+                                    ]
+                                },
+                                "evidence_ids": ["source_01_line_0001"],
+                            },
+                            {
+                                "target": "references",
+                                "property": "section.position",
+                                "value": "last",
+                                "evidence_ids": ["source_01_line_0002"],
+                            },
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
+
+            self.assertEqual(spec["targets"]["references"]["properties"]["section.position"]["value"], "last")
+            template = spec["targets"]["table_of_contents.level_1"]["properties"]["content.template"]["value"]
+            self.assertEqual(template["segments"][3], {"kind": "leader", "character": "…"})
+            self.assertFalse(report["validation"]["errors"])
+
+    def test_conditional_candidates_become_one_unique_property_action(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "requirements.txt"
+            source.write_text("博士封面粉红。\n硕士封面银灰。", encoding="utf-8")
+            ai = root / "ai.json"
+            ai.write_text(
+                json.dumps(
+                    {
+                        "candidates": [
+                            {
+                                "target": "document.binding",
+                                "property": "binding.cover_color",
+                                "value": "粉红",
+                                "when": {"field": "document.degree_type", "operator": "equals", "value": "doctoral"},
+                                "evidence_ids": ["source_01_line_0001"],
+                            },
+                            {
+                                "target": "document.binding",
+                                "property": "binding.cover_color",
+                                "value": "银灰",
+                                "when": {"field": "document.degree_type", "operator": "equals", "value": "master"},
+                                "evidence_ids": ["source_01_line_0002"],
+                            },
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
+
+            action = spec["targets"]["document.binding"]["properties"]["binding.cover_color"]
+            self.assertEqual(action["action"], "conditional")
+            self.assertEqual(len(action["cases"]), 2)
+            self.assertEqual(action["multiple_match_action"], "preserve")
+            self.assertEqual(action["fallback"], {"action": "preserve", "reason": "not_specified"})
+            self.assertFalse(report["conflicts"])
+            self.assertFalse(report["validation"]["errors"])
+
+    def test_conflicting_values_under_same_condition_preserve(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "requirements.txt"
+            source.write_text("硕士封面银灰。\n硕士封面深蓝。", encoding="utf-8")
+            condition = {"field": "document.degree_type", "operator": "equals", "value": "master"}
+            ai = root / "ai.json"
+            ai.write_text(
+                json.dumps(
+                    {
+                        "candidates": [
+                            {"target": "document.binding", "property": "binding.cover_color", "value": "银灰", "when": condition, "evidence_ids": ["source_01_line_0001"]},
+                            {"target": "document.binding", "property": "binding.cover_color", "value": "深蓝", "when": condition, "evidence_ids": ["source_01_line_0002"]},
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
+
+            action = spec["targets"]["document.binding"]["properties"]["binding.cover_color"]
+            self.assertEqual(action["action"], "preserve")
+            self.assertEqual(action["reason"], "unresolved_conflict")
+            self.assertEqual(len(report["conflicts"]), 1)
+
+    def test_inline_span_selectors_are_installed_and_validated(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "requirements.txt"
+            source.write_text("关键词三个字加粗，其余不加粗。", encoding="utf-8")
+            ai = root / "ai.json"
+            ai.write_text(
+                json.dumps(
+                    {
+                        "candidates": [
+                            {"target": "keywords.zh.label", "property": "font.bold", "value": True, "evidence_ids": ["source_01_line_0001"]},
+                            {"target": "keywords.zh.content", "property": "font.bold", "value": False, "evidence_ids": ["source_01_line_0001"]},
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
+
+            self.assertEqual(spec["selectors"]["keywords.zh.label"]["match_scope"], "text_span")
+            self.assertEqual(spec["selectors"]["keywords.zh.content"]["capture_group"], 1)
+            self.assertFalse(report["validation"]["errors"])
+
+    def test_invalid_template_and_condition_return_precise_errors(self) -> None:
+        spec = FormatSpecV2Tests().minimal_spec()
+        spec["targets"]["appendix"] = {
+            "properties": {
+                "content.template": {
+                    "action": "set",
+                    "value": {"segments": [{"kind": "field", "field": "invented"}]},
+                    "evidence_ids": ["source_01_line_0001"],
+                },
+                "content.required": {
+                    "action": "conditional",
+                    "cases": [
+                        {
+                            "when": {"field": "target.has_content", "operator": "equals", "target": "invented", "value": True},
+                            "value": True,
+                            "evidence_ids": ["source_01_line_0001"],
+                        }
+                    ],
+                    "multiple_match_action": "preserve",
+                    "fallback": {"action": "preserve", "reason": "not_specified"},
+                },
+            }
+        }
+
+        report = validate_spec(spec)
+
+        error_types = {item["error_type"] for item in report["errors"]}
+        self.assertIn("invalid_template_segment", error_types)
+        self.assertIn("invalid_condition_target", error_types)
+
+    def test_relative_section_position_requires_a_non_self_target(self) -> None:
+        spec = FormatSpecV2Tests().minimal_spec()
+        spec["targets"]["references"] = {
+            "properties": {
+                "section.relative_position": {
+                    "action": "set",
+                    "value": "after",
+                    "evidence_ids": ["source_01_line_0001"],
+                }
+            }
+        }
+        report = validate_spec(spec)
+        self.assertIn("incomplete_section_relation", {item["error_type"] for item in report["errors"]})
+
+        spec["targets"]["references"]["properties"]["section.relative_to"] = {
+            "action": "set",
+            "value": "references",
+            "evidence_ids": ["source_01_line_0001"],
+        }
+        report = validate_spec(spec)
+        self.assertIn("self_referencing_section", {item["error_type"] for item in report["errors"]})
 
     def test_ai_candidate_with_unknown_evidence_is_rejected(self) -> None:
         with TemporaryDirectory() as tmp:

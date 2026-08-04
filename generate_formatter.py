@@ -19,7 +19,7 @@ def load_spec(path: Path) -> dict:
     if not isinstance(spec, dict):
         raise ValueError("规格文件顶层必须是 JSON 对象")
 
-    if spec.get("schema_version") == "2.0.0":
+    if str(spec.get("schema_version", "")).startswith("2."):
         raise ValueError("当前格式化引擎尚未支持 format_spec schema v2；请等待后续执行器适配")
 
     if not (SUPPORTED_SPEC_KEYS & set(spec)):

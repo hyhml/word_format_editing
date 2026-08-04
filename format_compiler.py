@@ -38,6 +38,7 @@ class Candidate:
     unit: str | None = None
     method: str = "deterministic"
     confidence: float = 0.8
+    when: dict[str, Any] | None = None
 
 
 def _set_action(candidate: Candidate, evidence_ids: list[str]) -> dict[str, Any]:
@@ -51,6 +52,13 @@ def _set_action(candidate: Candidate, evidence_ids: list[str]) -> dict[str, Any]
     if candidate.unit:
         action["unit"] = candidate.unit
     return action
+
+
+def _conditional_case(candidate: Candidate, evidence_ids: list[str]) -> dict[str, Any]:
+    case = _set_action(candidate, evidence_ids)
+    case.pop("action")
+    case["when"] = candidate.when
+    return {"when": case.pop("when"), **case}
 
 
 def empty_spec(sources: list[RequirementSource], name: str, description: str) -> dict[str, Any]:
@@ -85,6 +93,8 @@ def empty_spec(sources: list[RequirementSource], name: str, description: str) ->
         "policies": {
             "unspecified_property_action": "preserve",
             "conflict_action": "preserve",
+            "unknown_condition_action": "preserve",
+            "multiple_condition_match_action": "preserve",
             "selector_priority": ["explicit_location", "structure", "style", "regex", "body_fallback"],
         },
         "document": {"properties": {}},
@@ -316,6 +326,7 @@ def load_ai_candidates(path: Path | None) -> tuple[list[Candidate], list[dict[st
                         unit=item.get("unit"),
                         method="ai",
                         confidence=float(item.get("confidence", 0.7)),
+                        when=item.get("when"),
                     )
                 )
         except (KeyError, TypeError, ValueError) as exc:
@@ -357,12 +368,68 @@ def merge_candidates(spec: dict[str, Any], candidates: Iterable[Candidate]) -> l
         grouped.setdefault((candidate.target, candidate.property), []).append(candidate)
     conflicts = []
     for (target, property_name), items in sorted(grouped.items()):
+        rule = spec["document"] if target == "document" else spec["targets"].setdefault(target, {"properties": {}})
+        conditional_items = [item for item in items if item.when is not None]
+        unconditional_items = [item for item in items if item.when is None]
+        if conditional_items:
+            condition_groups: dict[str, list[Candidate]] = {}
+            for item in conditional_items:
+                key = json.dumps(item.when, ensure_ascii=False, sort_keys=True)
+                condition_groups.setdefault(key, []).append(item)
+            condition_cases = []
+            conditional_conflict = False
+            for _condition_key, condition_items in sorted(condition_groups.items()):
+                values: dict[str, list[Candidate]] = {}
+                for item in condition_items:
+                    value_key = json.dumps({"value": item.value, "unit": item.unit}, ensure_ascii=False, sort_keys=True)
+                    values.setdefault(value_key, []).append(item)
+                if len(values) != 1:
+                    conditional_conflict = True
+                    break
+                same_items = next(iter(values.values()))
+                selected = sorted(same_items, key=lambda item: item.confidence, reverse=True)[0]
+                condition_cases.append(_conditional_case(selected, sorted({item.evidence_id for item in same_items})))
+
+            fallback: dict[str, Any] = {"action": "preserve", "reason": "not_specified"}
+            if unconditional_items:
+                fallback_values: dict[str, list[Candidate]] = {}
+                for item in unconditional_items:
+                    value_key = json.dumps({"value": item.value, "unit": item.unit}, ensure_ascii=False, sort_keys=True)
+                    fallback_values.setdefault(value_key, []).append(item)
+                if len(fallback_values) != 1:
+                    conditional_conflict = True
+                else:
+                    same_items = next(iter(fallback_values.values()))
+                    selected = sorted(same_items, key=lambda item: item.confidence, reverse=True)[0]
+                    fallback = _set_action(selected, sorted({item.evidence_id for item in same_items}))
+
+            if not conditional_conflict:
+                rule["properties"][property_name] = {
+                    "action": "conditional",
+                    "cases": condition_cases,
+                    "multiple_match_action": "preserve",
+                    "fallback": fallback,
+                }
+                continue
+            conflict = {
+                "target": target,
+                "property": property_name,
+                "candidates": [asdict(item) for item in items],
+                "resolution": "preserve",
+            }
+            conflicts.append(conflict)
+            rule["properties"][property_name] = {
+                "action": "preserve",
+                "reason": "unresolved_conflict",
+                "evidence_ids": sorted({item.evidence_id for item in items}),
+            }
+            continue
+
         unique: dict[str, list[Candidate]] = {}
         for item in items:
             value = float(item.value) if isinstance(item.value, (int, float)) and not isinstance(item.value, bool) else item.value
             key = json.dumps({"value": value, "unit": item.unit}, ensure_ascii=False, sort_keys=True)
             unique.setdefault(key, []).append(item)
-        rule = spec["document"] if target == "document" else spec["targets"].setdefault(target, {"properties": {}})
         if len(unique) == 1:
             same_items = next(iter(unique.values()))
             selected = sorted(same_items, key=lambda item: item.confidence, reverse=True)[0]
@@ -395,6 +462,9 @@ def install_selectors(spec: dict[str, Any]) -> None:
             "fallback_regex": list(definition["patterns"]),
             "priority": int(definition["priority"]),
         }
+        for key in ("match_scope", "within_target", "capture_group", "exclude_targets"):
+            if key in definition:
+                selector[key] = definition[key]
         if level_match:
             selector["structure_level"] = int(level_match.group(1))
             selector["style_names"] = [f"Heading {level_match.group(1)}", f"标题 {level_match.group(1)}"]
@@ -596,6 +666,7 @@ def ai_request(sources: list[RequirementSource]) -> dict[str, Any]:
                     "unit": "属性需要时填写标准单位",
                     "evidence_ids": ["至少一个来源块ID"],
                     "confidence": "0到1",
+                    "when": "可选；仅在固定条件词表成立时应用的结构化条件",
                 }
             ],
             "block_classifications": [
