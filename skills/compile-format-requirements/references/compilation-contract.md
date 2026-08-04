@@ -22,6 +22,14 @@ Write one JSON object:
       "classification": "requirement",
       "notes": "Explicit body font-size rule"
     }
+  ],
+  "unresolved_items": [
+    {
+      "evidence_id": "source_01_page_0008_line_0003",
+      "text": "无法用当前属性词表完整表达的原文片段",
+      "reason": "unsupported_property",
+      "notes": "保留原格式并在报告中提示"
+    }
   ]
 }
 ```
@@ -37,6 +45,8 @@ Use only targets and properties included in `ai_request.json`. Omit `unit` only 
 - `unresolved`: May contain a formatting requirement but cannot be normalized reliably.
 
 Classify every block. Never call a block `explanation` merely because its rule is difficult.
+
+If one block contains both normalized candidates and unsupported details, classify it as `requirement`, emit the supported candidates, and add every unsupported fragment to `unresolved_items`. Allowed reasons are `ambiguous`, `missing_dependency`, `unsupported_property`, and `source_incomplete`.
 
 ## Normalization
 

@@ -1,6 +1,6 @@
 ---
 name: compile-format-requirements
-description: Compile thesis, dissertation, journal, or institutional formatting requirements from TXT, Markdown, JSON, DOCX, or PDF into the repository's canonical format_spec schema v2. Use when Codex must identify, normalize, reconcile, or audit Word formatting rules before any document formatting is performed, especially when requirements contain tables, exceptions, inheritance, relative values, conflicts, or unspecified fields that must preserve the original format.
+description: Compile thesis, dissertation, journal, or institutional formatting requirements from TXT, Markdown, JSON, legacy DOC, DOCX, or PDF into the repository's canonical format_spec schema v2. Use when Codex must identify, normalize, reconcile, or audit Word formatting rules before any document formatting is performed, especially when requirements contain tables, exceptions, inheritance, relative values, conflicts, or unspecified fields that must preserve the original format.
 ---
 
 # Compile Format Requirements
@@ -24,11 +24,13 @@ Read [references/compilation-contract.md](references/compilation-contract.md) be
      --output work/ai_request.json
    ```
 
+   For legacy `.doc`, require `antiword`. Treat its text as usable evidence but explicitly report that original styles and table structure are unavailable.
+
 2. Read the complete request. Classify every source block and write `ai_candidates.json` using only the supplied target and property vocabulary.
 
 3. For every explicit requirement, emit concrete normalized candidates with real `evidence_ids`. Expand inheritance, conditions, and exceptions. Resolve relative values only when their dependencies are evidenced. Never insert common thesis defaults.
 
-4. Classify every source block as `requirement`, `explanation`, `example`, `irrelevant`, or `unresolved`. A `requirement` block must support at least one candidate; otherwise classify it as `unresolved`.
+4. Classify every source block as `requirement`, `explanation`, `example`, `irrelevant`, or `unresolved`. A `requirement` block must support at least one candidate; otherwise classify it as `unresolved`. When a block is only partially representable, also emit each unsupported fragment in `unresolved_items`.
 
 5. Compile and merge deterministic and AI recognition:
 
@@ -50,6 +52,7 @@ Read [references/compilation-contract.md](references/compilation-contract.md) be
    - `conflicts`
    - `coverage.unmapped_blocks`
    - `coverage.unresolved_blocks`
+   - `unresolved_items`
 
 7. If validation or AI candidate errors exist, return only those structured errors and their cited blocks to the AI reasoning step. Repair only the failing candidates, then compile again. Perform at most three total compile attempts.
 

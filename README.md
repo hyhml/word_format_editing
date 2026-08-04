@@ -12,7 +12,7 @@
 
 ## v0.12 格式要求编译器（Schema v2）
 
-`format_compiler.py` 专门处理“格式要求识别”阶段，把 `.txt`、`.md`、`.json`、`.docx` 或 `.pdf` 编译成唯一、规整的 `format_spec.json`：
+`format_compiler.py` 专门处理“格式要求识别”阶段，把 `.txt`、`.md`、`.json`、`.doc`、`.docx` 或 `.pdf` 编译成唯一、规整的 `format_spec.json`。旧版 `.doc` 需要系统安装 `antiword`，且只能可靠保留文字证据；若格式本身也承载要求，优先转换为 `.docx`：
 
 ```bash
 python3 format_compiler.py compile \

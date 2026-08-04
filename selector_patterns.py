@@ -52,11 +52,35 @@ SELECTOR_PATTERNS: dict[str, dict[str, object]] = {
         "negative": ["如图所示"],
         "priority": 75,
     },
+    "figure.caption.zh": {
+        "patterns": [r"^图\s*\d+(?:[-—.]\d+)*\s*\S"],
+        "positive": ["图 2-1 系统结构"],
+        "negative": ["Figure 2.1 System", "如图所示"],
+        "priority": 76,
+    },
+    "figure.caption.en": {
+        "patterns": [r"^(?:Figure|Fig\.)\s*\d+(?:[-—.]\d+)*\s*\S"],
+        "positive": ["Fig. 2.1 System"],
+        "negative": ["图 2-1 系统结构"],
+        "priority": 76,
+    },
     "table.caption": {
         "patterns": [r"^表\s*\d+(?:[-—.]\d+)*\s*\S", r"^Table\s*\d+(?:[-—.]\d+)*\s*\S"],
         "positive": ["表 2-1 实验结果", "Table 2.1 Results"],
         "negative": ["下表说明"],
         "priority": 75,
+    },
+    "table.caption.zh": {
+        "patterns": [r"^表\s*\d+(?:[-—.]\d+)*\s*\S"],
+        "positive": ["表 2-1 实验结果"],
+        "negative": ["Table 2.1 Results", "下表说明"],
+        "priority": 76,
+    },
+    "table.caption.en": {
+        "patterns": [r"^Table\s*\d+(?:[-—.]\d+)*\s*\S"],
+        "positive": ["Table 2.1 Results"],
+        "negative": ["表 2-1 实验结果"],
+        "priority": 76,
     },
     "references.heading": {
         "patterns": [r"^参考文献$", r"^References$"],

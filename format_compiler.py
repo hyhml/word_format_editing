@@ -170,6 +170,19 @@ def target_for_block(block: SourceBlock) -> str | None:
     return None
 
 
+def has_multiple_format_scopes(text: str) -> bool:
+    """Return true when one block assigns different formats to sub-objects."""
+    conflicting_markers = (
+        ("附录标题", "附录内容"),
+        ("论文题目", "其余"),
+        ("表头", "表内"),
+        ("表头", "表注"),
+        ("图标题", "图注"),
+        ("页眉", "其余"),
+    )
+    return any(first in text and second in text for first, second in conflicting_markers)
+
+
 def add_candidate(items: list[Candidate], target: str, property_name: str, value: Any, block: SourceBlock, unit: str | None = None, confidence: float = 0.8) -> None:
     if value is None:
         return
@@ -190,6 +203,21 @@ def deterministic_candidates(sources: list[RequirementSource]) -> list[Candidate
             if PATTERN_BY_ID["orientation_landscape"].compile().search(text):
                 add_candidate(candidates, "document", "page.orientation", "landscape", block, confidence=0.9)
 
+            handled_margins: set[str] = set()
+            paired_vertical = re.search(
+                r"上[、,，和及]下[^。；;\n]{0,16}?分别[^0-9]{0,8}"
+                r"(\d+(?:\.\d+)?)\s*(cm|厘米|mm|毫米|in|英寸)\s*(?:和|、|,|，)\s*"
+                r"(\d+(?:\.\d+)?)\s*(cm|厘米|mm|毫米|in|英寸)",
+                text,
+                re.IGNORECASE,
+            )
+            if paired_vertical:
+                top = normalize_length_cm("".join(paired_vertical.groups()[:2]))
+                bottom = normalize_length_cm("".join(paired_vertical.groups()[2:]))
+                add_candidate(candidates, "document", "page.margin_top_cm", top, block, "cm", 0.96)
+                add_candidate(candidates, "document", "page.margin_bottom_cm", bottom, block, "cm", 0.96)
+                handled_margins.update({"page.margin_top_cm", "page.margin_bottom_cm"})
+
             margin_patterns = {
                 "page.margin_top_cm": PATTERN_BY_ID["margin_top"].pattern,
                 "page.margin_bottom_cm": PATTERN_BY_ID["margin_bottom"].pattern,
@@ -199,12 +227,14 @@ def deterministic_candidates(sources: list[RequirementSource]) -> list[Candidate
                 "page.footer_distance_cm": r"页脚[^0-9]{0,12}(\d+(?:\.\d+)?)\s*(cm|厘米|mm|毫米|in|英寸)",
             }
             for property_name, pattern in margin_patterns.items():
+                if property_name in handled_margins:
+                    continue
                 match = re.search(pattern, text, re.IGNORECASE)
                 if match:
                     value = normalize_length_cm("".join(match.groups()))
                     add_candidate(candidates, "document", property_name, value, block, "cm", 0.92)
 
-            if target:
+            if target and not has_multiple_format_scopes(text):
                 for font in EAST_ASIA_FONTS:
                     if font in text:
                         add_candidate(candidates, target, "font.east_asia", font, block, confidence=0.9)
@@ -253,15 +283,17 @@ def deterministic_candidates(sources: list[RequirementSource]) -> list[Candidate
 
 
 BLOCK_CLASSIFICATIONS = {"requirement", "explanation", "example", "irrelevant", "unresolved"}
+UNRESOLVED_REASONS = {"ambiguous", "missing_dependency", "unsupported_property", "source_incomplete"}
 
 
-def load_ai_candidates(path: Path | None) -> tuple[list[Candidate], list[dict[str, Any]], list[dict[str, Any]]]:
+def load_ai_candidates(path: Path | None) -> tuple[list[Candidate], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     if path is None:
-        return [], [], []
+        return [], [], [], []
     data = json.loads(path.read_text(encoding="utf-8"))
     raw_candidates = data.get("candidates", []) if isinstance(data, dict) else []
     candidates = []
     classifications = []
+    unresolved_items = []
     errors = []
     for index, item in enumerate(raw_candidates):
         try:
@@ -299,7 +331,24 @@ def load_ai_candidates(path: Path | None) -> tuple[list[Candidate], list[dict[st
             )
         except (KeyError, TypeError, ValueError) as exc:
             errors.append({"index": index, "message": str(exc), "block_classification": item})
-    return candidates, classifications, errors
+    for index, item in enumerate(data.get("unresolved_items", []) if isinstance(data, dict) else []):
+        try:
+            evidence_id = str(item["evidence_id"])
+            reason = str(item["reason"])
+            text = str(item["text"])
+            if reason not in UNRESOLVED_REASONS:
+                raise ValueError(f"未知unresolved reason: {reason}")
+            unresolved_items.append(
+                {
+                    "evidence_id": evidence_id,
+                    "text": text,
+                    "reason": reason,
+                    "notes": str(item.get("notes", "")),
+                }
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            errors.append({"index": index, "message": str(exc), "unresolved_item": item})
+    return candidates, classifications, unresolved_items, errors
 
 
 def merge_candidates(spec: dict[str, Any], candidates: Iterable[Candidate]) -> list[dict[str, Any]]:
@@ -310,7 +359,8 @@ def merge_candidates(spec: dict[str, Any], candidates: Iterable[Candidate]) -> l
     for (target, property_name), items in sorted(grouped.items()):
         unique: dict[str, list[Candidate]] = {}
         for item in items:
-            key = json.dumps({"value": item.value, "unit": item.unit}, ensure_ascii=False, sort_keys=True)
+            value = float(item.value) if isinstance(item.value, (int, float)) and not isinstance(item.value, bool) else item.value
+            key = json.dumps({"value": value, "unit": item.unit}, ensure_ascii=False, sort_keys=True)
             unique.setdefault(key, []).append(item)
         rule = spec["document"] if target == "document" else spec["targets"].setdefault(target, {"properties": {}})
         if len(unique) == 1:
@@ -351,18 +401,25 @@ def install_selectors(spec: dict[str, Any]) -> None:
         spec["selectors"][target] = selector
 
 
-def source_coverage(sources: list[RequirementSource], candidates: list[Candidate], classifications: list[dict[str, Any]]) -> dict[str, Any]:
+def source_coverage(
+    sources: list[RequirementSource],
+    candidates: list[Candidate],
+    classifications: list[dict[str, Any]],
+    unresolved_items: list[dict[str, Any]],
+) -> dict[str, Any]:
     all_blocks = [block for source in sources for block in source.blocks]
     mapped_ids = {candidate.evidence_id for candidate in candidates}
     classification_by_id = {item["evidence_id"]: item["classification"] for item in classifications}
     covered_ids = mapped_ids | set(classification_by_id)
     mapped = [block.id for block in all_blocks if block.id in mapped_ids]
     unmapped = [block.id for block in all_blocks if block.id not in covered_ids]
+    unresolved_item_ids = {item["evidence_id"] for item in unresolved_items}
     unresolved = [
         block.id
         for block in all_blocks
         if classification_by_id.get(block.id) == "unresolved"
         or (classification_by_id.get(block.id) == "requirement" and block.id not in mapped_ids)
+        or block.id in unresolved_item_ids
     ]
     ratio = len(covered_ids & {block.id for block in all_blocks}) / len(all_blocks) if all_blocks else 0.0
     return {
@@ -384,11 +441,21 @@ def render_report(report: dict[str, Any]) -> str:
         f"- 来源文件：{len(report['sources'])}",
         f"- 候选规则：{report['candidate_count']}",
         f"- 冲突：{len(report['conflicts'])}",
+        f"- 局部未解决要求：{len(report.get('unresolved_items', []))}",
         f"- 映射覆盖率：{report['coverage']['mapped_ratio']:.2%}",
+        "",
+        "## 来源警告",
+        "",
+    ]
+    if report.get("source_warnings"):
+        lines.extend(f"- {warning}" for warning in report["source_warnings"])
+    else:
+        lines.append("- 无")
+    lines.extend([
         "",
         "## 校验",
         "",
-    ]
+    ])
     if report["validation"]["errors"]:
         lines.extend(f"- 失败：{item['path']} — {item['message']}" for item in report["validation"]["errors"])
     else:
@@ -396,6 +463,13 @@ def render_report(report: dict[str, Any]) -> str:
     lines.extend(["", "## 冲突", ""])
     if report["conflicts"]:
         lines.extend(f"- {item['target']}.{item['property']}：保持原格式" for item in report["conflicts"])
+    else:
+        lines.append("- 无")
+    lines.extend(["", "## 局部未解决要求", ""])
+    if report.get("unresolved_items"):
+        for item in report["unresolved_items"]:
+            notes = f"；{item['notes']}" if item.get("notes") else ""
+            lines.append(f"- {item['evidence_id']}：{item['text']}（{item['reason']}{notes}）")
     else:
         lines.append("- 无")
     lines.extend(["", "## 未映射来源块", ""])
@@ -409,7 +483,7 @@ def compile_sources(source_paths: list[Path], name: str = "", description: str =
     sources = extract_requirement_sources(source_paths)
     spec = empty_spec(sources, name, description)
     deterministic = deterministic_candidates(sources)
-    ai_candidates, classifications, ai_errors = load_ai_candidates(ai_candidates_path)
+    ai_candidates, classifications, unresolved_items, ai_errors = load_ai_candidates(ai_candidates_path)
     valid_evidence_ids = {block.id for source in sources for block in source.blocks}
     accepted_ai_candidates = []
     for candidate in ai_candidates:
@@ -437,13 +511,22 @@ def compile_sources(source_paths: list[Path], name: str = "", description: str =
         seen_classifications[evidence_id] = item["classification"]
         accepted_classifications.append(item)
     classifications = accepted_classifications
+    accepted_unresolved_items = []
+    for item in unresolved_items:
+        if item["evidence_id"] not in valid_evidence_ids:
+            ai_errors.append(
+                {"message": f"未解决项引用不存在的证据ID: {item['evidence_id']}", "unresolved_item": item}
+            )
+        else:
+            accepted_unresolved_items.append(item)
+    unresolved_items = accepted_unresolved_items
     candidates = [*deterministic, *ai_candidates]
     conflicts = merge_candidates(spec, candidates)
     install_selectors(spec)
     validation = validate_spec(spec)
     source_warnings = [warning for source in sources for warning in source.warnings]
-    requires_review = bool(conflicts or ai_errors or validation["warnings"] or source_warnings)
-    coverage = source_coverage(sources, candidates, classifications)
+    requires_review = bool(conflicts or ai_errors or unresolved_items or validation["warnings"] or source_warnings)
+    coverage = source_coverage(sources, candidates, classifications, unresolved_items)
     requires_review = requires_review or bool(coverage["unmapped_blocks"] or coverage["unresolved_blocks"])
     status = "blocked" if validation["errors"] else ("warn" if requires_review else "success")
     spec["recognition"] = {"status": status, "compiler": "format_compiler_v2", "requires_review": requires_review}
@@ -482,6 +565,7 @@ def compile_sources(source_paths: list[Path], name: str = "", description: str =
         "ai_candidate_count": len(ai_candidates),
         "ai_candidate_errors": ai_errors,
         "block_classifications": classifications,
+        "unresolved_items": unresolved_items,
         "recognized_rules": finalized_rules,
         "preserved_properties": preserved_properties,
         "conflicts": conflicts,
@@ -519,6 +603,14 @@ def ai_request(sources: list[RequirementSource]) -> dict[str, Any]:
                     "evidence_id": "每个未由候选规则使用的来源块ID",
                     "classification": "requirement|explanation|example|irrelevant|unresolved",
                     "notes": "简短理由"
+                }
+            ],
+            "unresolved_items": [
+                {
+                    "evidence_id": "部分规则无法规整时的来源块ID",
+                    "text": "无法规整的原文片段",
+                    "reason": "ambiguous|missing_dependency|unsupported_property|source_incomplete",
+                    "notes": "为何必须保持原格式或等待扩展"
                 }
             ]
         },

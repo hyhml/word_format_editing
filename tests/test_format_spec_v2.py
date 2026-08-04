@@ -7,6 +7,7 @@ import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from docx import Document
 
@@ -125,6 +126,22 @@ class RequirementSourceTests(unittest.TestCase):
             self.assertEqual((table_block.row, table_block.column), (0, 0))
             self.assertIn("page_width_cm", section_block.style)
 
+    def test_legacy_doc_uses_antiword_and_reports_style_loss(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "requirements.doc"
+            path.write_bytes(b"fake-ole-for-mocked-test")
+            completed = subprocess.CompletedProcess(
+                args=["antiword"], returncode=0, stdout="正文小四号宋体。\n", stderr=""
+            )
+            with patch("requirement_source.shutil.which", return_value="/usr/bin/antiword"), patch(
+                "requirement_source.subprocess.run", return_value=completed
+            ):
+                source = extract_requirement_sources([path])[0]
+
+            self.assertEqual(source.type, "doc")
+            self.assertEqual(source.blocks[0].text, "正文小四号宋体。")
+            self.assertIn("仅提取文字", source.warnings[0])
+
 
 class FormatCompilerTests(unittest.TestCase):
     def test_compiles_common_requirements_to_canonical_spec(self) -> None:
@@ -163,6 +180,27 @@ class FormatCompilerTests(unittest.TestCase):
             self.assertEqual(size["reason"], "unresolved_conflict")
             self.assertTrue(report["conflicts"])
             self.assertEqual(report["validation"]["status"], "warn")
+
+    def test_paired_vertical_margins_keep_distinct_values(self) -> None:
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "requirements.txt"
+            source.write_text("页边距：上、下分别设置为28mm和20mm。", encoding="utf-8")
+
+            spec, report, _sources = compile_sources([source])
+
+            properties = spec["document"]["properties"]
+            self.assertEqual(properties["page.margin_top_cm"]["value"], 2.8)
+            self.assertEqual(properties["page.margin_bottom_cm"]["value"], 2.0)
+            self.assertFalse(report["conflicts"])
+
+    def test_multi_scope_block_does_not_bind_first_font_to_every_subobject(self) -> None:
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "requirements.txt"
+            source.write_text("附录标题4号黑体，附录内容小4号宋体。", encoding="utf-8")
+
+            spec, _report, _sources = compile_sources([source])
+
+            self.assertNotIn("appendix.heading", spec["targets"])
 
     def test_ai_candidate_can_fill_semantic_rule_with_evidence(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -273,6 +311,38 @@ class FormatCompilerTests(unittest.TestCase):
 
             _spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
 
+            self.assertEqual(report["coverage"]["unresolved_blocks"], ["source_01_line_0001"])
+            self.assertEqual(report["status"], "warn")
+
+    def test_partial_unresolved_item_is_reported_even_when_block_has_candidate(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "requirements.txt"
+            source.write_text("正文小四号宋体，并按特殊规范处理字距。", encoding="utf-8")
+            ai = root / "ai.json"
+            ai.write_text(
+                json.dumps(
+                    {
+                        "candidates": [],
+                        "block_classifications": [
+                            {"evidence_id": "source_01_line_0001", "classification": "requirement"}
+                        ],
+                        "unresolved_items": [
+                            {
+                                "evidence_id": "source_01_line_0001",
+                                "text": "按特殊规范处理字距",
+                                "reason": "missing_dependency",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            _spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
+
+            self.assertEqual(len(report["unresolved_items"]), 1)
             self.assertEqual(report["coverage"]["unresolved_blocks"], ["source_01_line_0001"])
             self.assertEqual(report["status"], "warn")
 

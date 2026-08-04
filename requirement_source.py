@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+import shutil
+import subprocess
 from typing import Any
 
 
-SUPPORTED_SUFFIXES = {".txt", ".md", ".json", ".docx", ".pdf"}
+SUPPORTED_SUFFIXES = {".txt", ".md", ".json", ".doc", ".docx", ".pdf"}
 
 
 @dataclass
@@ -210,6 +212,39 @@ def _extract_docx(path: Path, source_id: str) -> RequirementSource:
     return RequirementSource(source_id, str(path), "docx", _with_context(blocks))
 
 
+def _extract_doc(path: Path, source_id: str) -> RequirementSource:
+    antiword = shutil.which("antiword")
+    if antiword is None:
+        raise ValueError("解析旧版 .doc 需要安装 antiword，或先将文件另存为 .docx")
+    process = subprocess.run(
+        [antiword, "-m", "UTF-8.txt", "-w", "0", str(path)],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if process.returncode != 0:
+        message = process.stderr.strip() or "antiword提取失败"
+        raise ValueError(f"无法读取旧版 .doc: {message}")
+    blocks = []
+    for line_number, line in enumerate(process.stdout.splitlines(), start=1):
+        if not line.strip():
+            continue
+        blocks.append(
+            SourceBlock(
+                id=f"{source_id}_line_{line_number:04d}",
+                source_id=source_id,
+                type="paragraph",
+                text=line.strip(),
+                paragraph_index=len(blocks),
+                style={"line_number": line_number},
+            )
+        )
+    warnings = [f"{path.name}: 旧版 .doc 仅提取文字，字体、段落样式、表格结构和页面设置可能丢失"]
+    return RequirementSource(source_id, str(path), "doc", _with_context(blocks), warnings)
+
+
 def _extract_pdf(path: Path, source_id: str) -> RequirementSource:
     from pypdf import PdfReader
 
@@ -246,6 +281,8 @@ def extract_requirement_source(path: Path, index: int = 1) -> RequirementSource:
     source_id = f"source_{index:02d}"
     if path.suffix.lower() in {".txt", ".md", ".json"}:
         return _extract_text_source(path, source_id)
+    if path.suffix.lower() == ".doc":
+        return _extract_doc(path, source_id)
     if path.suffix.lower() == ".docx":
         return _extract_docx(path, source_id)
     return _extract_pdf(path, source_id)

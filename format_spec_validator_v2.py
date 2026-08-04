@@ -21,6 +21,7 @@ UNIT_ALIASES = {
     "percent": {"percent"},
     "character": {"character"},
     "multiple_or_pt": {"multiple", "pt"},
+    "line": {"line"},
 }
 
 
