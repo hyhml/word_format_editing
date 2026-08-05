@@ -117,18 +117,22 @@ def target_for_block(block: SourceBlock) -> str | None:
     for target, pattern in heading_patterns:
         if re.search(pattern, text):
             return target
-    if re.search(r"中文摘要标题|摘要标题", text):
+    if re.search(r"中文摘要.*标题|摘要标题", text):
         return "abstract.zh.heading"
-    if re.search(r"英文摘要标题|Abstract标题", text, re.IGNORECASE):
+    if re.search(r"英文摘要.*标题|Abstract标题", text, re.IGNORECASE):
         return "abstract.en.heading"
     if re.search(r"中文摘要|摘要正文", text):
         return "abstract.zh.body"
     if re.search(r"英文摘要|Abstract正文", text, re.IGNORECASE):
         return "abstract.en.body"
+    if re.search(r"中文关键词.*标题", text):
+        return "keywords.zh.label"
+    if re.search(r"英文关键词.*标题", text):
+        return "keywords.en.label"
     if re.search(r"中文关键词", text):
-        return "keywords.zh"
+        return "keywords.zh.content"
     if re.search(r"英文关键词|Keywords", text, re.IGNORECASE):
-        return "keywords.en"
+        return "keywords.en.content"
     if re.search(r"封面", text):
         return "cover"
     if re.search(r"题名页|扉页", text):

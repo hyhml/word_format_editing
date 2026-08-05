@@ -80,6 +80,13 @@ def validate_template(value: Any, path: list[str]) -> list[dict[str, Any]]:
         elif kind == "tab":
             if set(segment) != {"kind", "alignment"} or segment.get("alignment") not in {"left", "center", "right"}:
                 errors.append(error_item("invalid_template_segment", segment_path, "tab 需要 left/center/right alignment", segment))
+        elif kind == "choice":
+            options = segment.get("options")
+            if set(segment) != {"kind", "options"} or not isinstance(options, list) or not 2 <= len(options) <= 10:
+                errors.append(error_item("invalid_template_segment", segment_path, "choice 需要2至10个模板选项", segment))
+            else:
+                for option_index, option in enumerate(options):
+                    errors.extend(validate_template(option, [*segment_path, "options", str(option_index)]))
         else:
             errors.append(error_item("invalid_template_segment", segment_path, "未知模板片段类型", kind))
     return errors
@@ -173,6 +180,14 @@ def validate_property_value(name: str, value: Any, unit: Any, has_unit: bool, pa
             and all(isinstance(item, str) for item in value)
             and len(value) == len(set(value))
             and all(item in definition["values"] for item in value)
+        )
+    elif value_type == "string_list":
+        valid_type = (
+            isinstance(value, list)
+            and bool(value)
+            and len(value) <= 50
+            and all(isinstance(item, str) and 0 < len(item) <= 50 for item in value)
+            and len(value) == len(set(value))
         )
     elif value_type == "target":
         valid_type = isinstance(value, str) and value in TARGETS

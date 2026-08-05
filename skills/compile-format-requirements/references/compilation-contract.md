@@ -59,6 +59,8 @@ For numbering and content layouts, use `content.template` with structured segmen
 
 Use only template fields exposed by the ontology. Punctuation is a `literal` segment. Use a `tab` segment with `left`, `center`, or `right` alignment for header/TOC tab stops. Do not put natural-language layout instructions into template values.
 
+When the source explicitly permits one of several layouts, use a `choice` segment whose `options` are complete nested `{ "segments": [...] }` templates. Do not use `choice` merely to hide uncertainty; ambiguous source wording remains unresolved.
+
 Some template fields declare runtime inputs in the ontology. For example, `degree_name` is resolved from `document.degree_type` in the paper being formatted. Keep this field dynamic instead of guessing “硕士” or “博士”; if the later paper-analysis stage cannot establish the input, the executor must preserve the original text.
 
 ## Block classification

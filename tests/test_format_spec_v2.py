@@ -39,6 +39,10 @@ class FormatSpecV2Tests(unittest.TestCase):
         self.assertIn("paragraph.keep_with_next", PROPERTY_NAMES)
         self.assertIn("content.template", PROPERTY_NAMES)
         self.assertIn("section.position", PROPERTY_NAMES)
+        self.assertIn("pagination.same_page_as", PROPERTY_NAMES)
+        self.assertIn("equation.wrap_before_operators", PROPERTY_NAMES)
+        self.assertIn("references.entry.journal", TARGETS)
+        self.assertIn("cover.student_id", TARGETS)
 
     def test_minimal_spec_is_schema_valid(self) -> None:
         report = validate_spec(self.minimal_spec())
@@ -314,6 +318,30 @@ class FormatCompilerTests(unittest.TestCase):
         self.assertEqual(report["status"], "success")
         self.assertFalse(report["errors"])
 
+    def test_template_choice_requires_multiple_valid_options(self) -> None:
+        spec = FormatSpecV2Tests().minimal_spec()
+        action = {
+            "action": "set",
+            "value": {
+                "segments": [
+                    {
+                        "kind": "choice",
+                        "options": [
+                            {"segments": [{"kind": "field", "field": "updated_date"}]},
+                            {"segments": [{"kind": "field", "field": "cited_date"}]},
+                        ],
+                    }
+                ]
+            },
+            "evidence_ids": ["source_01_line_0001"],
+        }
+        spec["targets"]["references.entry.electronic"] = {"properties": {"content.template": action}}
+        self.assertEqual(validate_spec(spec)["status"], "success")
+
+        action["value"]["segments"][0]["options"] = [{"segments": [{"kind": "field", "field": "cited_date"}]}]
+        report = validate_spec(spec)
+        self.assertIn("invalid_template_segment", {item["error_type"] for item in report["errors"]})
+
     def test_conditional_candidates_become_one_unique_property_action(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -436,6 +464,32 @@ class FormatCompilerTests(unittest.TestCase):
         error_types = {item["error_type"] for item in report["errors"]}
         self.assertIn("invalid_template_segment", error_types)
         self.assertIn("invalid_condition_target", error_types)
+
+    def test_string_list_and_same_page_target_are_validated(self) -> None:
+        spec = FormatSpecV2Tests().minimal_spec()
+        spec["targets"]["equation"] = {
+            "properties": {
+                "equation.wrap_before_operators": {
+                    "action": "set",
+                    "value": ["=", "+", "-", "×", "÷"],
+                    "evidence_ids": ["source_01_line_0001"],
+                }
+            }
+        }
+        spec["targets"]["abstract.zh.body"] = {
+            "properties": {
+                "pagination.same_page_as": {
+                    "action": "set",
+                    "value": "keywords.zh",
+                    "evidence_ids": ["source_01_line_0001"],
+                }
+            }
+        }
+        self.assertEqual(validate_spec(spec)["status"], "success")
+
+        spec["targets"]["equation"]["properties"]["equation.wrap_before_operators"]["value"] = ["=", "="]
+        report = validate_spec(spec)
+        self.assertIn("invalid_value", {item["error_type"] for item in report["errors"]})
 
     def test_relative_section_position_requires_a_non_self_target(self) -> None:
         spec = FormatSpecV2Tests().minimal_spec()
