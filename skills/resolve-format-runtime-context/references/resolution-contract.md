@@ -31,6 +31,13 @@ Allowed `document.degree_type` values:
 - `master`: the paper explicitly identifies an academic master's degree or thesis.
 - `professional_master`: the paper explicitly identifies a professional master's program, such as engineering, MBA, or MPA.
 
+Allowed `document.project_type` values:
+
+- `thesis`: the paper explicitly identifies itself as a 本科毕业论文.
+- `design`: the paper explicitly identifies itself as a 本科毕业设计.
+
+Only return fields listed in `required_fields`. A request may require either field or both.
+
 When evidence is insufficient or conflicting, return:
 
 ```json

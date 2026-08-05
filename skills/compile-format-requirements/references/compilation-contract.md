@@ -97,6 +97,10 @@ Every candidate must cite at least one source block. Use multiple IDs when a rul
 
 When sources disagree, emit both evidenced candidates. The compiler will create one `preserve` action and put the alternatives in the recognition report. Only collapse them when the source explicitly establishes precedence, such as a later supplement overriding the general rule.
 
+AI analysis may correct a coarse deterministic scope guess for the same evidence block and property. In that exact case the compiler suppresses the deterministic candidate before conflict detection. It never suppresses candidates across different evidence blocks, so real source conflicts still compile to `preserve`.
+
+When a fully classified block is `explanation`, `example`, or `irrelevant`, deterministic candidates from that block are also suppressed. This prevents URLs, sample pages, printing instructions, and administrative forms from leaking values into the formal specification.
+
 ## Repair loop
 
 Use `validation.repair_request` and `ai_candidate_errors` as the exclusive repair scope. Do not rewrite valid candidates during repair. Maximum: three total compile attempts. After that, mark affected blocks `unresolved` so the final policy preserves the original Word formatting.

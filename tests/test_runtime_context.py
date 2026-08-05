@@ -47,6 +47,34 @@ class RuntimeContextTests(unittest.TestCase):
             document.add_paragraph(text)
         document.save(path)
 
+    def conditional_cover_spec(self) -> dict:
+        return {
+            "document": {"properties": {}},
+            "targets": {
+                "cover.document_type": {
+                    "properties": {
+                        "text.content": {
+                            "action": "conditional",
+                            "cases": [
+                                {
+                                    "when": {"field": "document.project_type", "operator": "equals", "value": "thesis"},
+                                    "value": "本科毕业论文",
+                                    "evidence_ids": ["source_01_line_0001"],
+                                },
+                                {
+                                    "when": {"field": "document.project_type", "operator": "equals", "value": "design"},
+                                    "value": "本科毕业设计",
+                                    "evidence_ids": ["source_01_line_0002"],
+                                },
+                            ],
+                            "multiple_match_action": "preserve",
+                            "fallback": {"action": "preserve", "reason": "not_specified"},
+                        }
+                    }
+                }
+            },
+        }
+
     def test_runtime_context_schema_is_valid(self) -> None:
         Draft202012Validator.check_schema(load_runtime_context_schema())
 
@@ -68,6 +96,36 @@ class RuntimeContextTests(unittest.TestCase):
             },
         }
         self.assertEqual(required_runtime_inputs(static_spec), [])
+
+    def test_condition_fields_are_requested_without_template_fields(self) -> None:
+        self.assertEqual(required_runtime_inputs(self.conditional_cover_spec()), ["document.project_type"])
+
+    def test_request_extracts_project_type_evidence(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paper = Path(tmp) / "paper.docx"
+            self.make_paper(paper, "复旦大学", "本科毕业设计", "正文内容与类型判断无关")
+
+            request = build_runtime_context_request(self.conditional_cover_spec(), paper)
+
+            self.assertEqual(request["required_fields"], ["document.project_type"])
+            self.assertTrue(any(block["text"] == "本科毕业设计" for block in request["evidence_blocks"]))
+            self.assertNotIn("正文内容与类型判断无关", {block["text"] for block in request["evidence_blocks"]})
+
+            evidence_id = next(block["id"] for block in request["evidence_blocks"] if block["text"] == "本科毕业设计")
+            response = {
+                "schema_version": "1.0.0",
+                "document_fingerprint": request["document_fingerprint"],
+                "values": {
+                    "document.project_type": {
+                        "status": "resolved",
+                        "value": "design",
+                        "confidence": 0.99,
+                        "evidence_ids": [evidence_id],
+                        "reason": "封面明确写有本科毕业设计",
+                    }
+                },
+            }
+            self.assertEqual(validate_runtime_context_response(request, response)["status"], "success")
 
     def test_request_extracts_bounded_degree_evidence_from_docx(self) -> None:
         with TemporaryDirectory() as tmp:

@@ -514,6 +514,7 @@ def render_report(report: dict[str, Any]) -> str:
         f"- Schema：{report['schema_version']}",
         f"- 来源文件：{len(report['sources'])}",
         f"- 候选规则：{report['candidate_count']}",
+        f"- 已抑制的粗粒度确定性候选：{report.get('suppressed_deterministic_candidate_count', 0)}",
         f"- 冲突：{len(report['conflicts'])}",
         f"- 局部未解决格式要求：{len(report.get('unresolved_items', []))}",
         f"- 映射覆盖率：{report['coverage']['mapped_ratio']:.2%}",
@@ -594,6 +595,23 @@ def compile_sources(source_paths: list[Path], name: str = "", description: str =
         else:
             accepted_unresolved_items.append(item)
     unresolved_items = accepted_unresolved_items
+    suppressed_by_classification = [
+        candidate for candidate in deterministic
+        if seen_classifications.get(candidate.evidence_id) in {"explanation", "example", "irrelevant"}
+    ]
+    deterministic = [
+        candidate for candidate in deterministic
+        if seen_classifications.get(candidate.evidence_id) not in {"explanation", "example", "irrelevant"}
+    ]
+    ai_claims = {(candidate.evidence_id, candidate.property) for candidate in ai_candidates}
+    suppressed_by_ai_scope = [
+        candidate for candidate in deterministic
+        if (candidate.evidence_id, candidate.property) in ai_claims
+    ]
+    deterministic = [
+        candidate for candidate in deterministic
+        if (candidate.evidence_id, candidate.property) not in ai_claims
+    ]
     candidates = [*deterministic, *ai_candidates]
     conflicts = merge_candidates(spec, candidates)
     install_selectors(spec)
@@ -636,6 +654,9 @@ def compile_sources(source_paths: list[Path], name: str = "", description: str =
         "source_warnings": source_warnings,
         "candidate_count": len(candidates),
         "deterministic_candidate_count": len(deterministic),
+        "suppressed_deterministic_candidate_count": len(suppressed_by_classification) + len(suppressed_by_ai_scope),
+        "suppressed_deterministic_by_classification_count": len(suppressed_by_classification),
+        "suppressed_deterministic_by_ai_scope_count": len(suppressed_by_ai_scope),
         "ai_candidate_count": len(ai_candidates),
         "ai_candidate_errors": ai_errors,
         "block_classifications": classifications,

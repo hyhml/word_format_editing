@@ -41,8 +41,11 @@ class FormatSpecV2Tests(unittest.TestCase):
         self.assertIn("section.position", PROPERTY_NAMES)
         self.assertIn("pagination.same_page_as", PROPERTY_NAMES)
         self.assertIn("equation.wrap_before_operators", PROPERTY_NAMES)
+        self.assertIn("references.hanging_indent_chars", PROPERTY_NAMES)
         self.assertIn("references.entry.journal", TARGETS)
         self.assertIn("cover.student_id", TARGETS)
+        self.assertIn("cover.document_type", TARGETS)
+        self.assertIn("table_of_contents.page_number", TARGETS)
 
     def test_minimal_spec_is_schema_valid(self) -> None:
         report = validate_spec(self.minimal_spec())
@@ -245,6 +248,66 @@ class FormatCompilerTests(unittest.TestCase):
             self.assertEqual(action["action"], "set")
             self.assertEqual(action["method"], "ai")
             self.assertEqual(report["ai_candidate_count"], 1)
+
+    def test_ai_scope_claim_suppresses_same_evidence_deterministic_guess(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "requirements.txt"
+            source.write_text("一级标题：黑体，小三号。", encoding="utf-8")
+            ai = root / "ai.json"
+            ai.write_text(
+                json.dumps(
+                    {
+                        "candidates": [
+                            {
+                                "target": "heading.level_2",
+                                "property": "font.size_pt",
+                                "value": 15,
+                                "unit": "pt",
+                                "evidence_ids": ["source_01_line_0001"],
+                                "confidence": 0.97,
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
+
+            self.assertEqual(spec["targets"]["heading.level_2"]["properties"]["font.size_pt"]["value"], 15)
+            self.assertNotIn("font.size_pt", spec["targets"]["heading.level_1"]["properties"])
+            self.assertEqual(report["suppressed_deterministic_candidate_count"], 1)
+            self.assertFalse(report["conflicts"])
+
+    def test_non_requirement_classification_suppresses_deterministic_false_positive(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "requirements.txt"
+            source.write_text("材料下载地址：https://example.test/a4-template.pdf", encoding="utf-8")
+            ai = root / "ai.json"
+            ai.write_text(
+                json.dumps(
+                    {
+                        "candidates": [],
+                        "block_classifications": [
+                            {
+                                "evidence_id": "source_01_line_0001",
+                                "classification": "irrelevant",
+                                "notes": "下载地址不是纸张规格",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            spec, report, _sources = compile_sources([source], ai_candidates_path=ai)
+
+            self.assertNotIn("page.paper_size", spec["document"]["properties"])
+            self.assertEqual(report["suppressed_deterministic_by_classification_count"], 1)
 
     def test_content_template_and_section_position_are_normalized(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -490,6 +553,48 @@ class FormatCompilerTests(unittest.TestCase):
         spec["targets"]["equation"]["properties"]["equation.wrap_before_operators"]["value"] = ["=", "="]
         report = validate_spec(spec)
         self.assertIn("invalid_value", {item["error_type"] for item in report["errors"]})
+
+    def test_project_type_and_contains_math_conditions_are_validated(self) -> None:
+        spec = FormatSpecV2Tests().minimal_spec()
+        spec["targets"]["cover.document_type"] = {
+            "properties": {
+                "text.content": {
+                    "action": "conditional",
+                    "cases": [
+                        {
+                            "when": {"field": "document.project_type", "operator": "equals", "value": "design"},
+                            "value": "本科毕业设计",
+                            "evidence_ids": ["source_01_line_0001"],
+                        }
+                    ],
+                    "multiple_match_action": "preserve",
+                    "fallback": {"action": "preserve", "reason": "not_specified"},
+                }
+            }
+        }
+        spec["targets"]["body.paragraph"] = {
+            "properties": {
+                "paragraph.line_spacing.value": {
+                    "action": "conditional",
+                    "cases": [
+                        {
+                            "when": {
+                                "field": "target.contains_math",
+                                "operator": "equals",
+                                "target": "body.paragraph",
+                                "value": False,
+                            },
+                            "value": 20,
+                            "unit": "pt",
+                            "evidence_ids": ["source_01_line_0002"],
+                        }
+                    ],
+                    "multiple_match_action": "preserve",
+                    "fallback": {"action": "preserve", "reason": "not_specified"},
+                }
+            }
+        }
+        self.assertEqual(validate_spec(spec)["status"], "success")
 
     def test_relative_section_position_requires_a_non_self_target(self) -> None:
         spec = FormatSpecV2Tests().minimal_spec()

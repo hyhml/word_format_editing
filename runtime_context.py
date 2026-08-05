@@ -25,6 +25,7 @@ MAX_EVIDENCE_BLOCKS = 30
 
 FIELD_VALUE_CONTRACTS: dict[str, list[str]] = {
     "document.degree_type": ["doctoral", "master", "professional_master"],
+    "document.project_type": ["thesis", "design"],
 }
 
 DEGREE_NAME_BY_TYPE = {
@@ -51,22 +52,42 @@ def _actions(rule: dict[str, Any]) -> Iterable[dict[str, Any]]:
 
 
 def required_runtime_inputs(spec: dict[str, Any]) -> list[str]:
-    """Return only runtime fields actually referenced by template actions."""
+    """Return only runtime fields actually referenced by templates or conditions."""
     required = set()
+
+    def scan_template(value: Any) -> None:
+        if not isinstance(value, dict) or not isinstance(value.get("segments"), list):
+            return
+        for segment in value["segments"]:
+            if not isinstance(segment, dict):
+                continue
+            if segment.get("kind") == "field":
+                runtime_input = TEMPLATE_FIELD_RUNTIME_INPUTS.get(segment.get("field"))
+                if runtime_input and runtime_input in FIELD_VALUE_CONTRACTS:
+                    required.add(runtime_input)
+            elif segment.get("kind") == "choice":
+                for option in segment.get("options", []):
+                    scan_template(option)
+
+    def scan_condition(condition: Any) -> None:
+        if not isinstance(condition, dict):
+            return
+        for logical in ("all", "any"):
+            for child in condition.get(logical, []):
+                scan_condition(child)
+        if "not" in condition:
+            scan_condition(condition["not"])
+        field = condition.get("field")
+        if field in FIELD_VALUE_CONTRACTS:
+            required.add(field)
+
     rules = [spec.get("document", {}), *(spec.get("targets", {}).values() if isinstance(spec.get("targets"), dict) else [])]
     for rule in rules:
         if not isinstance(rule, dict):
             continue
         for action in _actions(rule):
-            value = action.get("value")
-            if not isinstance(value, dict) or not isinstance(value.get("segments"), list):
-                continue
-            for segment in value["segments"]:
-                if not isinstance(segment, dict) or segment.get("kind") != "field":
-                    continue
-                runtime_input = TEMPLATE_FIELD_RUNTIME_INPUTS.get(segment.get("field"))
-                if runtime_input and runtime_input in FIELD_VALUE_CONTRACTS:
-                    required.add(runtime_input)
+            scan_template(action.get("value"))
+            scan_condition(action.get("when"))
     return sorted(required)
 
 
@@ -123,6 +144,24 @@ def _degree_evidence(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return selected
 
 
+def _project_type_evidence(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    patterns = (
+        (r"本科毕业设计", 18),
+        (r"本科毕业论文", 18),
+        (r"选题类型|项目类型|论文类型", 10),
+        (r"毕业设计|毕业论文", 8),
+    )
+    scored = []
+    for order, block in enumerate(blocks):
+        score = sum(weight for pattern, weight in patterns if re.search(pattern, block["text"], re.IGNORECASE))
+        if score and order < 30:
+            score += 2
+        if score:
+            scored.append((score, -order, block))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [item[2] for item in scored[:MAX_EVIDENCE_BLOCKS]]
+
+
 def build_runtime_context_request(spec: dict[str, Any], paper_path: Path) -> dict[str, Any]:
     """Build the bounded evidence packet that the skill gives to the AI."""
     paper_path = paper_path.resolve()
@@ -133,6 +172,8 @@ def build_runtime_context_request(spec: dict[str, Any], paper_path: Path) -> dic
     evidence = []
     if "document.degree_type" in required_fields:
         evidence.extend(_degree_evidence(blocks))
+    if "document.project_type" in required_fields:
+        evidence.extend(_project_type_evidence(blocks))
     unique_evidence = {block["id"]: block for block in evidence}
     return {
         "schema_version": RUNTIME_CONTEXT_SCHEMA_VERSION,

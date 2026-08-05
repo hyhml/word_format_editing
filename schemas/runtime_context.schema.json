@@ -12,7 +12,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "document.degree_type": {"$ref": "#/$defs/degreeTypeResolution"}
+        "document.degree_type": {"$ref": "#/$defs/degreeTypeResolution"},
+        "document.project_type": {"$ref": "#/$defs/projectTypeResolution"}
       }
     }
   },
@@ -41,6 +42,53 @@
               "properties": {
                 "status": {"const": "resolved"},
                 "value": {"enum": ["doctoral", "master", "professional_master"]},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "evidence_ids": {
+                  "type": "array",
+                  "items": {"type": "string", "minLength": 1},
+                  "minItems": 1,
+                  "uniqueItems": true
+                },
+                "reason": {"type": "string", "minLength": 1, "maxLength": 300}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/resolutionBase"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "value", "confidence", "evidence_ids", "reason"],
+              "properties": {
+                "status": {"const": "unknown"},
+                "value": {"type": "null"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "evidence_ids": {
+                  "type": "array",
+                  "items": {"type": "string", "minLength": 1},
+                  "uniqueItems": true
+                },
+                "reason": {"type": "string", "minLength": 1, "maxLength": 300}
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "projectTypeResolution": {
+      "oneOf": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/resolutionBase"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "value", "confidence", "evidence_ids", "reason"],
+              "properties": {
+                "status": {"const": "resolved"},
+                "value": {"enum": ["thesis", "design"]},
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                 "evidence_ids": {
                   "type": "array",
